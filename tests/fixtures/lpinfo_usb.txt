@@ -1,0 +1,24 @@
+Device: uri = usb://HP/LaserJet%20Pro%20M404?serial=PHB1234567
+        class = direct
+        info = HP LaserJet Pro M404
+        make-and-model = HP LaserJet Pro M404
+        device-id = MFG:HP;MDL:LaserJet Pro M404;CMD:PJL,PCL,PCLXL,URF,PWG;SN:PHB1234567;
+        location =
+Device: uri = hp:/usb/HP_LaserJet_Pro_M404?serial=PHB1234567
+        class = direct
+        info = HP LaserJet Pro M404 USB PHB1234567 HPLIP
+        make-and-model = HP LaserJet Pro M404
+        device-id = MFG:HP;MDL:LaserJet Pro M404;CMD:PJL,PCL,PCLXL,URF,PWG;SN:PHB1234567;
+        location =
+Device: uri = usb://Canon/MG3600?serial=1
+        class = direct
+        info = Canon MG3600
+        make-and-model = Canon MG3600 series
+        device-id = MFG:Canon;MDL:MG3600 series;
+        location =
+Device: uri = implicitclass://HP_OfficeJet_Pro_9010/
+        class = network
+        info = HP OfficeJet Pro 9010
+        make-and-model = HP OfficeJet Pro 9010 series
+        device-id =
+        location =

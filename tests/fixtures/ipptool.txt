@@ -1,0 +1,7 @@
+"get-printer-attributes.test":
+    Get-Printer-Attributes:
+        attributes-charset (charset) = utf-8
+        printer-make-and-model (textWithoutLanguage) = HP Fake LaserJet
+        printer-uuid (uri) = urn:uuid:0e4c4f3a-1111-2222-3333-444455556666
+        document-format-supported (1setOf mimeMediaType) = application/pdf,image/pwg-raster,image/jpeg
+    [PASS]
