@@ -84,6 +84,7 @@ def test_postrm_purge_removes_state_only():
     "path",
     [
         "packaging/build-deb.sh",
+        "tests/integration/run.sh",
         "install.sh",
         *[f"packaging/DEBIAN/{name}" for name in SCRIPTS],
     ],

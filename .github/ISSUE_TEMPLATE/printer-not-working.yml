@@ -1,0 +1,53 @@
+name: Printer not working
+description: A printer or scanner does not work after running hpeasy
+title: "[printer] "
+labels: ["hardware"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please run the commands below on the affected machine and paste their output.
+  - type: input
+    id: model
+    attributes:
+      label: Printer model
+      description: Exactly as printed on the device, for example "HP OfficeJet Pro 9010".
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection
+      options:
+        - USB
+        - Network (Wi-Fi or Ethernet)
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and version
+      description: For example "Ubuntu 24.04" or "Debian 12". See /etc/os-release.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `hpeasy doctor --json`
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: list
+    attributes:
+      label: Output of `hpeasy list --json`
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
