@@ -1,0 +1,6 @@
+drv:///hpcups.drv/hp-laserjet_pro_m404-m405.ppd HP LaserJet Pro M404 M405, hpcups 3.23.12
+drv:///hpcups.drv/hp-laserjet_pro_m40.ppd HP LaserJet Pro M40, hpcups 3.23.12
+drv:///hpijs.drv/hp-laserjet_pro_m404-hpijs.ppd HP LaserJet Pro M404 hpijs, 3.23.12
+drv:///hpcups.drv/hp-officejet_pro_8600.ppd HP Officejet Pro 8600, hpcups 3.23.12
+drv:///hpcups.drv/hp-laserjet_professional_p1102.ppd HP LaserJet Professional P1102, hpcups 3.23.12
+everywhere IPP Everywhere
