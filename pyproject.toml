@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hpeasy"
+dynamic = ["version"]
+description = "Set up any HP printer or MFP on Debian/Ubuntu with one command (not affiliated with HP Inc.)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "GPL-2.0-or-later"}
+dependencies = []
+
+[project.scripts]
+hpeasy = "hpeasy.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "hpeasy.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
