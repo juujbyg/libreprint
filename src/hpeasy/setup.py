@@ -256,12 +256,22 @@ def _setup_all(
     return outcomes
 
 
-def run_setup(runner: Runner, opts: Options, config: Config, ui: UI) -> list[Outcome]:
+def run_setup(
+    runner: Runner,
+    opts: Options,
+    config: Config,
+    ui: UI,
+    *,
+    models: set[str] | None = None,
+) -> list[Outcome]:
+    """Set up discovered devices; ``models`` (additive) restricts them to those model names."""
     if opts.uri:
         probed = probe_uri(runner, opts.uri)
         devices = [probed] if probed is not None else []
     else:
         devices = discover(runner)
+    if models is not None:
+        devices = [d for d in devices if d.model in models]
     if ui.interactive and len(devices) > 1:
         picks = ui.choose(
             "Several HP devices found:", [f"{d.display_name} ({d.connection})" for d in devices]
@@ -331,3 +341,14 @@ def watch(runner: Runner, config: Config) -> None:
         if fresh:
             runner.sleep(WATCH_SETTLE_SECONDS)
             run_auto(runner, config, usb_only=False, network_only=True)
+
+
+def clear_pending_plugin(runner: Runner) -> list[str]:
+    """Empty ``state.pending_plugin`` under the lock; return the models that were pending."""
+    with _locked():
+        state = state_mod.load_state(runner)
+        pending = list(state.pending_plugin)
+        if pending:
+            state.pending_plugin = []
+            save_state(runner, state)
+    return pending
