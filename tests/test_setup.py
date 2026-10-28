@@ -319,8 +319,32 @@ def test_run_setup_with_uri_and_no_device():
     assert run_setup(make_runner(), Options(uri="bogus://x"), Config(), AutoUI()) == []
 
 
+def test_setup_usb_everywhere_without_ipp_uri_installs_hplip():
+    runner = make_runner()
+    runner.on(*DPKG_STATUS, "hplip", code=1)
+    device = m404()
+    device.ipp_everywhere = True  # IPP-over-USB capable, but no ipp-usb endpoint known
+    setup(runner, device)
+    assert ["apt-get", "install", "-y", "hplip"] in runner.calls
+
+
+def test_run_auto_waits_for_ipp_usb_endpoint():
+    runner = make_runner(models_dat=fixture("models.dat"))
+    runner.on("lpinfo", "-l", "-v", out=fixture("lpinfo_usb.txt"))
+    runner.on_seq(
+        "avahi-browse",
+        results=[Result(0), Result(0, fixture("avahi.txt"))],
+    )
+    outcomes = run_auto(runner, Config(), usb_only=True)
+    assert runner.slept == [2]
+    assert [o.status for o in outcomes] == ["created"]
+    assert outcomes[0].plan.uri == "ipp://localhost:60000/ipp/print"
+    assert outcomes[0].plan.ppd == "everywhere"
+
+
 def test_run_auto_retries_until_device():
     runner = make_runner(models_dat=fixture("models.dat"))
+    runner.on(*DPKG_STATUS, "ipp-usb", code=1)  # no ipp-usb: nothing else to wait for
     runner.on_seq(
         "lpinfo", "-l", "-v",
         results=[Result(0), Result(0), Result(0, fixture("lpinfo_usb.txt"))],

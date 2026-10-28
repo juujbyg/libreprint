@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 
 from hpeasy import deps, hplipdb, plugin, scanning
 from hpeasy import state as state_mod
-from hpeasy.decide import decide
+from hpeasy.decide import best_ipp_uri, decide
 from hpeasy.discovery import discover, parse_avahi, probe_uri
 from hpeasy.hplipdb import normalize_model
 from hpeasy.models import Device, Method, Plan, ScanMethod
@@ -93,6 +93,24 @@ def _ensure_packages(
     return None
 
 
+def _driverless_ready(device: Device) -> bool:
+    return device.ipp_everywhere and best_ipp_uri(device.uris) is not None
+
+
+def _awaiting_ipp_usb(runner: Runner, device: Device) -> bool:
+    """An IPP-over-USB printer seen by lpinfo before ipp-usb has published its endpoint.
+
+    Setting it up now would pick HPLIP, whose hp:/usb/ backend competes with ipp-usb
+    for the same USB interface, so auto mode waits for the driverless endpoint.
+    """
+    return (
+        device.connection == "usb"
+        and device.ipp_everywhere
+        and not _driverless_ready(device)
+        and deps.is_installed(runner, "ipp-usb")
+    )
+
+
 def _hpmakeuri(runner: Runner, ip: str) -> str | None:
     res = runner.run(["hp-makeuri", "-c", ip], timeout=60)
     for token in res.out.split():
@@ -157,8 +175,8 @@ def _setup_device(
     if existing is not None:
         taken.discard(existing.name)  # --force: reconfigure the existing queue in place
 
-    # 2. HPLIP database needed for non-driverless devices.
-    if not device.ipp_everywhere and db is None:
+    # 2. HPLIP database needed unless the device can be set up driverless right now.
+    if not _driverless_ready(device) and db is None:
         error = _ensure_packages(
             runner, ["hplip", "printer-driver-hpcups"], config, ui, opts.assume_yes
         )
@@ -313,7 +331,7 @@ def run_auto(
 
     devices = wanted(discover(runner))
     for delay in AUTO_RETRY_DELAYS:
-        if devices:
+        if devices and not any(_awaiting_ipp_usb(runner, d) for d in devices):
             break
         runner.sleep(delay)
         devices = wanted(discover(runner))
