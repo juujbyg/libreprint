@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 import sys
 
-from hpeasy.runner import FakeRunner, Runner
+from hpeasy.runner import FakeRunner, Result, Runner
 
 
 def test_runner_forces_c_locale():
@@ -45,3 +45,17 @@ def test_fake_runner_binaries():
     assert r.run(["avahi-browse"]).code == 127
     assert r.which("avahi-browse") is None
     assert r.which("lpstat") == "/usr/bin/lpstat"
+
+
+def test_fake_runner_on_seq_last_repeats():
+    r = FakeRunner().on_seq("x", results=[Result(1), Result(0, "ok")])
+    assert [r.run(["x"]).code for _ in range(3)] == [1, 0, 0]
+
+
+def test_fake_runner_listdir_and_write_file():
+    r = FakeRunner(files={"/etc/d/a": "1", "/etc/d/b": "2", "/etc/d/sub/c": "3", "/etc/x": "4"})
+    r.write_file("/etc/d/z", "5")
+    assert r.listdir("/etc/d") == ["a", "b", "z"]
+    assert r.listdir("/nope") == []
+    assert r.exists("/etc/d/a")
+    assert r.exists("/etc/d/sub")
