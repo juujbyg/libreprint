@@ -1,0 +1,8 @@
+[Unit]
+Description=hpeasy: configure HP USB device %I
+After=cups.service ipp-usb.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/hpeasy auto --usb %I
+TimeoutStartSec=300

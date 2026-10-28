@@ -1,0 +1,17 @@
+Package: hpeasy
+Version: @VERSION@
+Architecture: all
+Maintainer: hpeasy contributors <147175691+juujbyg@users.noreply.github.com>
+Depends: python3 (>= 3.10), cups, cups-client
+Recommends: ipp-usb, avahi-daemon, avahi-utils, libnss-mdns, printer-driver-hpcups, hplip, sane-utils, sane-airscan, libsane-hpaio, cups-ipp-utils
+Section: utils
+Priority: optional
+Homepage: https://github.com/@OWNER@/hpeasy
+Description: Set up any HP printer or MFP with one command
+ hpeasy detects HP printers and multifunction devices (USB or network), picks
+ the right method (driverless IPP Everywhere, HPLIP, or HPLIP with the HP
+ plugin), creates the CUPS queue, configures scanning and diagnoses common
+ problems with "hpeasy doctor".
+ .
+ It builds on CUPS, IPP Everywhere, ipp-usb, HPLIP and SANE. It is not a new
+ driver and is not affiliated with HP Inc.

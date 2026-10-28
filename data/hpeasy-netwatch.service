@@ -1,0 +1,12 @@
+[Unit]
+Description=hpeasy: watch the network for new HP printers
+After=avahi-daemon.service cups.service
+Wants=avahi-daemon.service
+
+[Service]
+ExecStart=/usr/bin/hpeasy watch
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove)
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+        fi
+        udevadm control --reload-rules >/dev/null 2>&1 || true
+        ;;
+    purge)
+        rm -rf /var/lib/hpeasy
+        rm -f /var/log/hpeasy-install.log
+        ;;
+    *)
+        ;;
+esac
+
+exit 0

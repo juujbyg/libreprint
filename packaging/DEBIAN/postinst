@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        udevadm control --reload-rules >/dev/null 2>&1 || true
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+            systemctl enable --now hpeasy-netwatch.service || true
+        fi
+        # Configure printers that are already connected, without blocking dpkg.
+        (/usr/bin/hpeasy auto --all >/var/log/hpeasy-install.log 2>&1 &) || true
+        ;;
+    *)
+        ;;
+esac
+
+exit 0
