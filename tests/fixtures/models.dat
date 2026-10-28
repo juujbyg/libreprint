@@ -1,0 +1,22 @@
+[laserjet_pro_m404]
+model1=HP LaserJet Pro M404
+support-type=2
+plugin=0
+scan-type=0
+
+[laserjet_professional_p1102]
+model1=HP LaserJet Professional P1102
+support-type=2
+plugin=1
+plugin-reason=64
+scan-type=0
+
+[officejet_pro_8600]
+support-type=2
+plugin=0
+scan-type=5
+
+[deskjet_1000_j110_series]
+support-type=0
+plugin=0
+scan-type=0
