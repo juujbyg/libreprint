@@ -55,7 +55,9 @@ comandos externos pasa por un `Runner` inyectable → la lógica se testea con u
 | `cli.py` | argparse: `setup`, `list`, `doctor`, `plugin`, `auto` (interno), `watch` (interno). | setup, doctor |
 
 Ficheros de sistema (en `data/`): regla udev, unidades systemd, config por defecto.
-Empaquetado en `debian/` (debhelper + pybuild).
+Empaquetado: script `packaging/build-deb.sh` con `dpkg-deb` (un único `.deb`
+arquitectura `all` válido para las cuatro distribuciones; evita depender de
+`pybuild-plugin-pyproject`, ausente o inmaduro en 22.04).
 
 ## 3. Flujo de decisión
 
