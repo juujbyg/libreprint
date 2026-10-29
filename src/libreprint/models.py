@@ -22,7 +22,7 @@ class ScanMethod(str, Enum):
 
 @dataclass
 class Device:
-    model: str  # without "HP "/"Hewlett-Packard " prefix
+    model: str  # without the manufacturer prefix ("HP ", "Canon ", ...)
     connection: str  # "usb" | "network"
     uris: list[str] = field(default_factory=list)
     serial: str | None = None
@@ -30,10 +30,15 @@ class Device:
     ip: str | None = None
     ipp_everywhere: bool = False
     escl: bool = False
+    make: str = "HP"  # manufacturer as shown to users; "" when unknown
+
+    @property
+    def is_hp(self) -> bool:
+        return self.make == "HP"
 
     @property
     def display_name(self) -> str:
-        return "HP " + self.model
+        return f"{self.make} {self.model}".strip()
 
 
 @dataclass(frozen=True)

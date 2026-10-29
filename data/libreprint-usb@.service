@@ -1,5 +1,5 @@
 [Unit]
-Description=LibrePrint: configure HP USB device %I
+Description=LibrePrint: configure USB printer %I
 After=cups.service ipp-usb.service
 
 [Service]

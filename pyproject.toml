@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "libreprint"
 dynamic = ["version"]
-description = "Set up any HP printer or MFP on Debian/Ubuntu with one command (not affiliated with HP Inc.)"
+description = "Set up any printer or scanner on Debian/Ubuntu with one command, and print, scan and check ink"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "GPL-2.0-or-later"}

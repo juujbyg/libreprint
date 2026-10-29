@@ -7,11 +7,13 @@ Recommends: ipp-usb, avahi-daemon, avahi-utils, libnss-mdns, printer-driver-hpcu
 Section: utils
 Priority: optional
 Homepage: https://github.com/@OWNER@/libreprint
-Description: Set up any HP printer or MFP with one command
- libreprint detects HP printers and multifunction devices (USB or network), picks
- the right method (driverless IPP Everywhere, HPLIP, or HPLIP with the HP
- plugin), creates the CUPS queue, configures scanning and diagnoses common
- problems with "libreprint doctor".
+Description: Set up any printer or scanner with one command
+ LibrePrint detects printers and multifunction devices of any make (USB or
+ network), sets them up driverless with IPP Everywhere, creates the CUPS queue,
+ configures scanning (eSCL) and diagnoses common problems with
+ "libreprint doctor". Older HP models are set up with HPLIP, and with HP's
+ plugin when needed. It includes an app to print, scan, check ink levels and
+ cancel jobs.
  .
  It builds on CUPS, IPP Everywhere, ipp-usb, HPLIP and SANE. It is not a new
- driver and is not affiliated with HP Inc.
+ driver and is not affiliated with any printer manufacturer.

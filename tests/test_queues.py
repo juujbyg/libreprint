@@ -24,12 +24,13 @@ def test_parse_lpstat_v():
 
 
 def test_queue_name_basic():
-    assert queues.queue_name("OfficeJet Pro 9010 series", set()) == "HP_OfficeJet_Pro_9010_series"
+    name = queues.queue_name("HP OfficeJet Pro 9010 series", set())
+    assert name == "HP_OfficeJet_Pro_9010_series"
 
 
 def test_queue_name_collision():
     taken = {"HP_LaserJet_1020", "HP_LaserJet_1020_2"}
-    assert queues.queue_name("LaserJet 1020", taken) == "HP_LaserJet_1020_3"
+    assert queues.queue_name("HP LaserJet 1020", taken) == "HP_LaserJet_1020_3"
 
 
 def test_find_existing_by_uri():
@@ -96,3 +97,8 @@ def test_disabled_queues():
         "printer HP_B is idle.  enabled since Tue 28 Oct 2026 10:00:00\n"
     )
     assert queues.disabled_queues(out) == ["HP_A"]
+
+
+def test_queue_name_other_make():
+    assert queues.queue_name("Brother HL-L2350DW series", set()) == "Brother_HL_L2350DW_series"
+    assert queues.queue_name("???", set()) == "Printer"

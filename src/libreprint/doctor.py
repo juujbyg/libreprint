@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Diagnostics for the common failure modes of HP printing and scanning on Linux."""
+"""Diagnostics for the common failure modes of printing and scanning on Linux."""
 
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict
 
 from libreprint import __version__, deps, hplipdb, plugin, scanning
@@ -13,7 +14,7 @@ from libreprint.queues import disabled_queues, parse_lpstat_v
 from libreprint.runner import Runner
 from libreprint.state import load_state
 
-HP_USB_ID = "03f0:"
+USB_PRINTER_CLASS = re.compile(r"bInterfaceClass\s+7\b")  # in lsusb -v, for any make
 SCANNER_PACKAGES = ["sane-airscan", "libsane-hpaio"]
 
 
@@ -48,10 +49,11 @@ def _package(runner: Runner, check_id: str, package: str, why: str) -> Check:
 
 
 def _check_ipp_usb(runner: Runner, devices: list[Device]) -> Check:
-    lsusb = runner.run(["lsusb", "-d", HP_USB_ID]) if runner.which("lsusb") else None
-    has_usb = bool(lsusb and lsusb.out.strip()) or any(d.connection == "usb" for d in devices)
+    has_usb = any(d.connection == "usb" for d in devices)
+    if not has_usb and runner.which("lsusb"):
+        has_usb = USB_PRINTER_CLASS.search(runner.run(["lsusb", "-v"]).out) is not None
     if not has_usb:
-        return Check("ipp-usb", "skip", "no HP USB device attached")
+        return Check("ipp-usb", "skip", "no USB printer attached")
     return _package(runner, "ipp-usb", "ipp-usb", "needed for driverless USB printing")
 
 
@@ -81,9 +83,7 @@ def _check_queues(runner: Runner) -> list[Check]:
             Check("queues-duplicate", "skip", "lpstat not available (install cups-client)"),
         ]
     checks: list[Check] = []
-    disabled = [
-        name for name in disabled_queues(runner.run(["lpstat", "-p"]).out) if name.startswith("HP_")
-    ]
+    disabled = disabled_queues(runner.run(["lpstat", "-p"]).out)
     if disabled:
         checks.extend(
             Check(
@@ -96,7 +96,7 @@ def _check_queues(runner: Runner) -> list[Check]:
             for name in disabled
         )
     else:
-        checks.append(Check("queues-enabled", "ok", "no HP queue is disabled"))
+        checks.append(Check("queues-enabled", "ok", "no queue is disabled"))
 
     by_uri: dict[str, list[str]] = {}
     for queue in parse_lpstat_v(runner.run(["lpstat", "-v"]).out):
@@ -138,11 +138,21 @@ def _check_plugin(runner: Runner) -> Check:
 
 
 def _check_hplip_model(runner: Runner, devices: list[Device]) -> Check:
+    no_driver = [d.display_name for d in devices if not d.is_hp and not d.ipp_everywhere]
+    if no_driver:
+        return Check(
+            "hplip-model",
+            "warn",
+            "no driverless (IPP Everywhere) support, install the manufacturer's Linux driver: "
+            + ", ".join(no_driver),
+        )
     db = hplipdb.load_from(runner)
     if db is None:
         return Check("hplip-model", "skip", "HPLIP model database not found (hplip not installed)")
     unknown = [
-        d.model for d in devices if not d.ipp_everywhere and hplipdb.lookup(db, d.model) is None
+        d.display_name
+        for d in devices
+        if not d.ipp_everywhere and hplipdb.lookup(db, d.model) is None
     ]
     if not unknown:
         return Check("hplip-model", "ok", "all detected models are known to HPLIP or driverless")
@@ -158,11 +168,11 @@ def _check_scanner(runner: Runner, devices: list[Device]) -> Check:
     db = hplipdb.load_from(runner)
 
     def scans(device: Device) -> bool:
-        info = hplipdb.lookup(db, device.model) if db else None
+        info = hplipdb.lookup(db, device.model) if db and device.is_hp else None
         return device.escl or (info is not None and info.scan)
 
     if not any(scans(d) for d in devices):
-        return Check("scanner", "skip", "no scan-capable HP device detected")
+        return Check("scanner", "skip", "no scan-capable device detected")
     if not runner.which("scanimage"):
         return Check("scanner", "skip", "scanimage not available (install sane-utils)")
     if scanning.list_scanners(runner):
@@ -171,7 +181,7 @@ def _check_scanner(runner: Runner, devices: list[Device]) -> Check:
     return Check(
         "scanner",
         "warn",
-        "scanimage -L lists no scanner although a scan-capable HP device was detected",
+        "scanimage -L lists no scanner although a scan-capable device was detected",
         fix=fix,
         fix_argv=argv,
     )

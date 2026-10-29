@@ -1,2 +1,4 @@
-# libreprint: configure HP USB devices when they are plugged in.
+# libreprint: configure printers when they are plugged in. Any device with a USB printer
+# interface (class 07), plus HP devices that only expose vendor-specific interfaces.
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="libreprint-usb@%k.service"
 ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="03f0", TAG+="systemd", ENV{SYSTEMD_WANTS}+="libreprint-usb@%k.service"

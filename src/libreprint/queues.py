@@ -29,8 +29,9 @@ def parse_lpstat_v(out: str) -> list[Queue]:
     return found
 
 
-def queue_name(model: str, taken: set[str]) -> str:
-    base = ("HP_" + re.sub(r"[^A-Za-z0-9]+", "_", model).strip("_"))[:100]
+def queue_name(name: str, taken: set[str]) -> str:
+    """CUPS queue name for a device's display name, e.g. "HP ENVY 6000" -> "HP_ENVY_6000"."""
+    base = re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_")[:100] or "Printer"
     if base not in taken:
         return base
     n = 2

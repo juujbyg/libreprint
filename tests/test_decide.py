@@ -122,3 +122,24 @@ def test_taken_names_get_suffix():
     info = HplipInfo("laserjet_1020", True, False, False)
     plan = decide(dev, info, {"HP_LaserJet_1020"})
     assert plan.queue == "HP_LaserJet_1020_2"
+
+
+def test_other_make_driverless():
+    dev = Device(
+        model="HL-L2350DW series",
+        connection="network",
+        uris=["ipp://10.0.0.7:631/ipp/print"],
+        ipp_everywhere=True,
+        make="Brother",
+    )
+    plan = decide(dev, None, set())
+    assert plan.method is Method.DRIVERLESS
+    assert plan.queue == "Brother_HL_L2350DW_series"
+
+
+def test_other_make_never_uses_hplip():
+    dev = Device(model="MG3600 series", connection="usb", uris=["usb://Canon/MG3600"], make="Canon")
+    plan = decide(dev, HplipInfo("mg3600_series", supported=True, plugin=False, scan=True), set())
+    assert plan.method is Method.UNSUPPORTED
+    assert plan.scan is ScanMethod.NONE
+    assert "manufacturer's Linux driver" in plan.reason

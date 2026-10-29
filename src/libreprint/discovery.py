@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Find HP printers via lpinfo (USB), avahi-browse (network) and ipptool."""
+"""Find printers and scanners via lpinfo (USB), avahi-browse (network) and ipptool."""
 
 from __future__ import annotations
 
@@ -11,8 +11,12 @@ from libreprint.hplipdb import normalize_model
 from libreprint.models import Device
 from libreprint.runner import Runner
 
-_HP_NAME = re.compile(r"^(hewlett[- ]?packard|hp)(?![a-z0-9])", re.IGNORECASE)
-_HP_PREFIX = re.compile(r"^(hewlett[- ]?packard|hp)\s+", re.IGNORECASE)
+_HP_PREFIX = re.compile(r"^(hewlett[- ]?packard|hp)(?:\s+|$)", re.IGNORECASE)
+# Manufacturer prefixes recognised in model names, in the spelling shown to users.
+_MAKES = (
+    "Brother", "Canon", "Dell", "Epson", "Fuji Xerox", "FUJIFILM", "Konica Minolta", "Kyocera",
+    "Lexmark", "OKI", "Pantum", "Ricoh", "Samsung", "Sharp", "Toshiba", "Xerox",
+)  # fmt: skip
 _TRAILING_BRACKET = re.compile(r"\s*\[[^\]]*\]\s*$")
 _TXT_ITEM = re.compile(r'"((?:[^"\\]|\\.)*)"')
 _ESCAPE = re.compile(r"\\(\d{3})")
@@ -20,12 +24,22 @@ _IPP_ATTR = re.compile(r"^\s*([\w.-]+) \([^)]*\) = (.*)$")
 _RASTER_FORMATS = ("image/pwg-raster", "image/urf")
 
 
-def _strip_hp(name: str) -> str:
-    return _HP_PREFIX.sub("", name.strip()).strip()
+def split_make(name: str, mfg: str = "") -> tuple[str, str]:
+    """Split "HP ENVY 6000 series" into ``("HP", "ENVY 6000 series")``.
 
-
-def _is_hp_name(name: str) -> bool:
-    return bool(_HP_NAME.match(name.strip()))
+    ``mfg`` is a manufacturer reported separately (USB device ID, mDNS ``usb_MFG``); it is used
+    when the name itself does not start with a known manufacturer.
+    """
+    name = name.strip()
+    mfg = mfg.strip()
+    if _HP_PREFIX.match(name) or _HP_PREFIX.fullmatch(mfg):
+        return "HP", _HP_PREFIX.sub("", name).strip()
+    for make in (*_MAKES, mfg):
+        if make and name.lower().startswith(make.lower()):
+            rest = name[len(make) :]
+            if not rest or not rest[0].isalnum():
+                return (make if make in _MAKES else mfg), rest.strip(" -")
+    return mfg, name
 
 
 def _unescape(text: str) -> str:
@@ -70,16 +84,11 @@ def parse_lpinfo(out: str) -> list[Device]:
         if not uri.startswith(("usb://", "hp:/usb/")):
             continue  # implicitclass://, cups-brf:, dnssd:// and others are not handled here
         did = _parse_device_id(block.get("device-id", ""))
-        make_model = block.get("make-and-model", "")
-        is_hp = (
-            did.get("MFG", "").lower() in ("hp", "hewlett-packard")
-            or _is_hp_name(make_model)
-            or uri.startswith("hp:")
-        )
-        if not is_hp:
-            continue
-        model = did.get("MDL") or _strip_hp(make_model)
-        if not model:
+        mfg = "HP" if uri.startswith("hp:") else did.get("MFG", "")
+        make, model = split_make(block.get("make-and-model", ""), mfg)
+        if did.get("MDL"):
+            model = split_make(did["MDL"], make)[1]
+        if not model or model.lower() == "unknown":
             continue
         query = parse_qs(urlsplit(uri).query)
         serial = (query.get("serial") or [did.get("SN") or None])[0]
@@ -92,6 +101,7 @@ def parse_lpinfo(out: str) -> list[Device]:
                 uris=[uri],
                 serial=serial,
                 ipp_everywhere=everywhere,
+                make=make,
             )
         )
     return devices
@@ -108,20 +118,12 @@ def _parse_txt(raw: str) -> dict[str, str]:
     return txt
 
 
-def _avahi_model(txt: dict[str, str], name: str) -> str:
-    if txt.get("usb_mdl"):
-        return txt["usb_mdl"].strip()
+def _avahi_make_model(txt: dict[str, str], name: str) -> tuple[str, str]:
     ty = txt.get("ty") or txt.get("product", "").strip("()") or name
-    return _strip_hp(_TRAILING_BRACKET.sub("", ty))
-
-
-def _avahi_is_hp(txt: dict[str, str]) -> bool:
-    if txt.get("usb_mfg", "").strip().lower() in ("hp", "hewlett-packard"):
-        return True
-    for key in ("ty", "product"):
-        if _is_hp_name(txt.get(key, "").strip("() ")):
-            return True
-    return False
+    make, model = split_make(_TRAILING_BRACKET.sub("", ty), txt.get("usb_mfg", ""))
+    if txt.get("usb_mdl"):
+        model = split_make(txt["usb_mdl"], make)[1]
+    return make, model
 
 
 def parse_avahi(out: str) -> list[Device]:
@@ -134,10 +136,9 @@ def parse_avahi(out: str) -> list[Device]:
             continue
         _, iface, _proto, raw_name, svc, _domain, hostname, address, port, raw_txt = parts
         txt = _parse_txt(raw_txt)
-        if not _avahi_is_hp(txt):
-            continue
-        name = _unescape(raw_name)
-        model = _avahi_model(txt, name)
+        if "printer-type" in txt:
+            continue  # a queue shared by a CUPS server (maybe this one), not a device
+        make, model = _avahi_make_model(txt, _unescape(raw_name))
         if not model:
             continue
         is_lo = iface == "lo"
@@ -147,6 +148,7 @@ def parse_avahi(out: str) -> list[Device]:
             connection="usb" if is_lo else "network",
             uuid=uuid,
             ip=None if is_lo else address,
+            make=make,
         )
         if svc in ("_ipp._tcp", "_ipps._tcp"):
             scheme = "ipps" if svc == "_ipps._tcp" else "ipp"
@@ -186,15 +188,17 @@ def ipp_attributes(out: str) -> dict[str, str]:
 def parse_ipptool(out: str, uri: str) -> Device | None:
     attrs = ipp_attributes(out)
     make_model = attrs.get("printer-make-and-model")
-    if not make_model:
-        return None
+    if not make_model or "printer-type" in attrs:
+        return None  # printer-type is only reported by CUPS queues, not by devices
     uuid = attrs.get("printer-uuid", "")
     uuid = uuid.lower().removeprefix("urn:uuid:") or None
     formats = attrs.get("document-format-supported", "").lower()
     host = urlsplit(uri).hostname or ""
     ip = host if re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host) else None
+    make, model = split_make(make_model)
     return Device(
-        model=_strip_hp(make_model),
+        model=model,
+        make=make,
         connection="network",
         uris=[uri],
         uuid=uuid,
@@ -263,15 +267,15 @@ def merge(devices: list[Device]) -> list[Device]:
 
 
 def parse_airscan(out: str) -> list[tuple[str, str]]:
-    """Return ``(model, ip)`` pairs for HP eSCL scanners listed by ``airscan-discover``."""
+    """Return ``(model, ip)`` pairs for the eSCL scanners listed by ``airscan-discover``."""
     found: list[tuple[str, str]] = []
     for line in out.splitlines():
         name, sep, rest = line.strip().partition(" = ")
-        if not sep or not rest.endswith(", eSCL") or not _is_hp_name(name):
+        if not sep or not rest.endswith(", eSCL"):
             continue
         host = urlsplit(rest.split(",")[0].strip()).hostname or ""
         if re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host):
-            found.append((_strip_hp(_TRAILING_BRACKET.sub("", name)), host))
+            found.append((split_make(_TRAILING_BRACKET.sub("", name))[1], host))
     return found
 
 
@@ -284,7 +288,7 @@ def _discover_without_avahi(runner: Runner) -> list[Device]:
             continue
         out = runner.run(["ipptool", "-T", "10", "-tv", uri, "get-printer-attributes.test"]).out
         dev = parse_ipptool(out, uri)
-        if dev is not None and re.search(r"printer-make-and-model \([^)]*\) = (HP|Hewlett)", out):
+        if dev is not None:
             devices.append(dev)
     devices = merge(devices)
     scanners = parse_airscan(runner.run(["airscan-discover"], timeout=30).out)
@@ -317,7 +321,7 @@ def probe_uri(runner: Runner, uri: str) -> Device | None:
         segments = [s for s in parts.path.split("/") if s]
         if len(segments) < 2 or segments[0] not in ("usb", "net"):
             return None
-        model = _strip_hp(unquote(segments[1]).replace("_", " "))
+        model = split_make(unquote(segments[1]).replace("_", " "), "HP")[1]
         if not model:
             return None
         query = parse_qs(parts.query)

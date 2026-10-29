@@ -16,8 +16,9 @@ def read(*parts):
     return ROOT.joinpath(*parts).read_text(encoding="utf-8")
 
 
-def test_udev_rule_matches_hp_usb_and_starts_the_unit():
+def test_udev_rule_matches_usb_printers_and_starts_the_unit():
     rule = read("data", "60-libreprint.rules")
+    assert 'ENV{ID_USB_INTERFACES}=="*:0701??:*"' in rule
     assert '"03f0"' in rule
     assert "libreprint-usb@%k.service" in rule
     assert 'SUBSYSTEM=="usb"' in rule
@@ -53,7 +54,7 @@ def test_control_file():
         "hplip, sane-utils, sane-airscan, libsane-hpaio, cups-ipp-utils, "
         "python3-gi, gir1.2-adw-1, python3-cairo\n"
     ) in control
-    assert "not affiliated with HP Inc." in control
+    assert "not affiliated with any printer manufacturer" in control
 
 
 def test_conffiles_lists_the_config():

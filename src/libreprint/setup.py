@@ -178,7 +178,7 @@ def _setup_device(
         taken.discard(existing.name)  # --force: reconfigure the existing queue in place
 
     # 2. HPLIP database needed unless the device can be set up driverless right now.
-    if not _driverless_ready(device) and db is None:
+    if device.is_hp and not _driverless_ready(device) and db is None:
         error = _ensure_packages(
             runner, ["hplip", "printer-driver-hpcups"], config, ui, opts.assume_yes
         )
@@ -294,7 +294,7 @@ def run_setup(
         devices = [d for d in devices if d.model in models]
     if ui.interactive and len(devices) > 1:
         picks = ui.choose(
-            "Several HP devices found:", [f"{d.display_name} ({d.connection})" for d in devices]
+            "Several printers found:", [f"{d.display_name} ({d.connection})" for d in devices]
         )
         devices = [devices[i] for i in picks]
     if not devices:

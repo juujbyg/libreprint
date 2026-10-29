@@ -37,18 +37,18 @@ def _symbols() -> dict[str, str]:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="libreprint", description="Set up any HP printer or MFP with one command."
+        prog="libreprint", description="Set up any printer or scanner with one command."
     )
     parser.add_argument("--version", action="version", version=f"libreprint {__version__}")
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
 
-    p = sub.add_parser("setup", help="detect HP devices and create their print queues")
+    p = sub.add_parser("setup", help="detect printers and create their print queues")
     p.add_argument("--uri", help="configure this device URI instead of discovering")
     p.add_argument("--yes", action="store_true", help="do not ask questions")
     p.add_argument("--no-test-page", action="store_true", help="do not print a test page")
     p.add_argument("--force", action="store_true", help="reconfigure an existing queue")
 
-    p = sub.add_parser("list", help="list detected HP devices")
+    p = sub.add_parser("list", help="list detected printers")
     p.add_argument("--json", action="store_true", help="machine-readable output")
 
     p = sub.add_parser("doctor", help="diagnose common problems")
@@ -63,7 +63,7 @@ def _build_parser() -> argparse.ArgumentParser:
     group.add_argument("--usb", metavar="DEVNAME", help="a USB device was just plugged in")
     group.add_argument("--all", action="store_true", help="USB and network devices")
 
-    sub.add_parser("watch", help="watch the network for new HP printers (systemd service)")
+    sub.add_parser("watch", help="watch the network for new printers (systemd service)")
     sub.add_parser("gui", help="open the graphical app: ink, printing, scanning, diagnostics")
     return parser
 
@@ -131,7 +131,7 @@ def _cmd_setup(args: argparse.Namespace, runner: Runner) -> int:
     ui = ConsoleUI(assume_yes=args.yes)
     outcomes = setup_mod.run_setup(runner, opts, load_config(runner), ui)
     if not outcomes:
-        print("libreprint: no HP device found", file=sys.stderr)
+        print("libreprint: no printer found", file=sys.stderr)
         return EXIT_NO_DEVICE
     return _report(outcomes)
 
@@ -155,7 +155,7 @@ def _cmd_list(args: argparse.Namespace, runner: Runner) -> int:
     for row in table:
         print("  ".join(cell.ljust(width) for cell, width in zip(row, widths)).rstrip())
     if not rows:
-        print("No HP device found.", file=sys.stderr)
+        print("No printer found.", file=sys.stderr)
     return EXIT_OK
 
 

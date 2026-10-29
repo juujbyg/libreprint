@@ -248,7 +248,7 @@ class Window(Adw.ApplicationWindow):
             Adw.StatusPage(
                 icon_name="printer-symbolic",
                 title="No printer configured",
-                description="Run “sudo libreprint setup” to add your HP printer.",
+                description="Run “sudo libreprint setup” to add your printer.",
             ),
             "empty",
         )
@@ -649,7 +649,7 @@ class Window(Adw.ApplicationWindow):
             if isinstance(result, Exception) or not result:
                 self.scanner_row.set_model(Gtk.StringList.new(["No scanner found"]))
                 return
-            # sane-airscan first: it is the most reliable backend for network HP devices
+            # sane-airscan first: it is the most reliable backend for network devices
             self.scanners = sorted(result, key=lambda s: (not s.startswith("airscan:"), s))
             labels = [status.scanner_label(s) for s in self.scanners]
             self.scanner_row.set_model(Gtk.StringList.new(labels))
@@ -878,7 +878,7 @@ class App(Adw.Application):
                 lambda *_: Adw.AboutDialog(
                     application_name="LibrePrint",
                     version=__version__,
-                    comments="Set up and use HP printers on Linux.\nNot affiliated with HP Inc.",
+                    comments="Set up and use any printer on Linux.",
                     license_type=Gtk.License.GPL_2_0,
                 ).present(window),
             )

@@ -5,22 +5,34 @@ from libreprint import discovery
 from libreprint.runner import FakeRunner
 
 
-def test_parse_lpinfo_filters_hp():
+def test_parse_lpinfo_finds_usb_printers_of_every_make():
     devices = discovery.parse_lpinfo(fixture("lpinfo_usb.txt"))
-    assert len(devices) == 2
-    for dev in devices:
+    hp = [d for d in devices if d.make == "HP"]
+    assert len(hp) == 2
+    for dev in hp:
         assert dev.model == "LaserJet Pro M404"
         assert dev.serial == "PHB1234567"
         assert dev.connection == "usb"
         assert dev.ipp_everywhere is True
+    (canon,) = [d for d in devices if d.make == "Canon"]
+    assert canon.model == "MG3600 series"
+    assert canon.display_name == "Canon MG3600 series"
+    assert canon.ipp_everywhere is False
 
 
 def test_avahi_unescape_and_model():
     devices = discovery.parse_avahi(fixture("avahi.txt"))
     officejets = [d for d in devices if "OfficeJet" in d.model]
     assert officejets
-    assert all(d.model == "OfficeJet Pro 9010 series" for d in officejets)
-    assert not any("Brother" in d.model or "HL-L2350" in d.model for d in devices)
+    assert all(d.model == "OfficeJet Pro 9010 series" and d.make == "HP" for d in officejets)
+    (brother,) = [d for d in devices if d.make == "Brother"]
+    assert brother.model == "HL-L2350DW series"
+    assert brother.ipp_everywhere is True
+
+
+def test_avahi_skips_queues_shared_by_cups():
+    devices = discovery.parse_avahi(fixture("avahi.txt"))
+    assert not any("Shared" in d.model for d in devices)
 
 
 def test_avahi_uris():
@@ -72,7 +84,7 @@ def test_pdl_datastream_device():
 def test_discover_without_avahi():
     runner = FakeRunner(binaries={"lpinfo"}).on("lpinfo", out=fixture("lpinfo_usb.txt"))
     devices = discovery.discover(runner)
-    assert len(devices) == 1
+    assert [d.display_name for d in devices] == ["HP LaserJet Pro M404", "Canon MG3600 series"]
 
 
 def test_discover_asks_avahi_for_raw_service_types():
@@ -89,7 +101,7 @@ def test_existing_queue_by_mdns_name_is_recognised():
     (device,) = [
         d
         for d in discovery.merge(discovery.parse_avahi(fixture("avahi.txt")))
-        if d.connection == "network" and d.ipp_everywhere
+        if d.connection == "network" and d.ipp_everywhere and d.make == "HP"
     ]
     queue = Queue("HP_OfficeJet", "ipp://HPABC123.local:631/ipp/print")
     assert find_existing(device, [queue]) == queue
@@ -97,10 +109,13 @@ def test_existing_queue_by_mdns_name_is_recognised():
 
 def test_discover_network_without_avahi():
     uri = "ipps://HPFAKE.local:631/ipp/print"
+    shared = "ipp://server.local:631/printers/Office"
+    cups_queue = "        printer-type (enum) = 4180\n"
     runner = (
         FakeRunner(binaries={"lpinfo", "ippfind", "ipptool", "airscan-discover"})
-        .on("ippfind", out=f"{uri}\n{uri}\nipp://other.local:631/ipp/print\n")
+        .on("ippfind", out=f"{uri}\n{uri}\nipp://other.local:631/ipp/print\n{shared}\n")
         .on("ipptool", out="")
+        .on("ipptool", "-T", "10", "-tv", shared, out=fixture("ipptool.txt") + cups_queue)
         .on("ipptool", "-T", "10", "-tv", uri, out=fixture("ipptool.txt"))
         .on(
             "airscan-discover",
@@ -130,3 +145,20 @@ def test_probe_uri_hp_scheme():
     assert dev.model == "OfficeJet Pro 8600"
     assert dev.ip == "10.0.0.5"
     assert dev.connection == "network"
+
+
+def test_split_make():
+    assert discovery.split_make("HP ENVY 6000 series") == ("HP", "ENVY 6000 series")
+    assert discovery.split_make("Hewlett-Packard LaserJet 1020") == ("HP", "LaserJet 1020")
+    assert discovery.split_make("EPSON ET-2810 Series") == ("Epson", "ET-2810 Series")
+    assert discovery.split_make("Brother HL-L2350DW series") == ("Brother", "HL-L2350DW series")
+    assert discovery.split_make("Canonical Printer") == ("", "Canonical Printer")
+    assert discovery.split_make("Acme Jet 9", "Acme") == ("Acme", "Jet 9")
+    assert discovery.split_make("ImageJet 9", "Acme") == ("Acme", "ImageJet 9")
+
+
+def test_parse_ipptool_other_make():
+    out = fixture("ipptool.txt").replace("HP Fake LaserJet", "EPSON ET-2810 Series")
+    dev = discovery.parse_ipptool(out, "ipp://10.0.0.9:631/ipp/print")
+    assert dev is not None
+    assert (dev.make, dev.model) == ("Epson", "ET-2810 Series")

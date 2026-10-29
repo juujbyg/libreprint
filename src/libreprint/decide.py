@@ -24,6 +24,8 @@ def _dedupe(items: list[str]) -> list[str]:
 
 
 def decide(device: Device, hplip: HplipInfo | None, taken_names: set[str]) -> Plan:
+    if not device.is_hp:
+        hplip = None  # HPLIP only drives HP devices; a model name match elsewhere is a coincidence
     if device.escl:
         scan, scan_packages = ScanMethod.ESCL, ESCL_PACKAGES
     elif hplip is not None and hplip.scan:
@@ -39,7 +41,7 @@ def decide(device: Device, hplip: HplipInfo | None, taken_names: set[str]) -> Pl
             scan=scan,
             uri=ipp_uri,
             ppd="everywhere",
-            queue=queue_name(device.model, taken_names),
+            queue=queue_name(device.display_name, taken_names),
             packages=_dedupe(list(scan_packages)),
         )
 
@@ -50,14 +52,15 @@ def decide(device: Device, hplip: HplipInfo | None, taken_names: set[str]) -> Pl
             scan=scan,
             uri=next((u for u in device.uris if u.startswith("hp:")), None),
             ppd=None,
-            queue=queue_name(device.model, taken_names),
+            queue=queue_name(device.display_name, taken_names),
             packages=_dedupe(HPLIP_PACKAGES + scan_packages),
             needs_plugin=hplip.plugin,
         )
 
-    reason = (
-        "HPLIP lists this model as unsupported"
-        if hplip is not None
-        else "model not found in the installed HPLIP database"
-    )
+    if not device.is_hp:
+        reason = "no driverless (IPP Everywhere) support; install the manufacturer's Linux driver"
+    elif hplip is not None:
+        reason = "HPLIP lists this model as unsupported"
+    else:
+        reason = "model not found in the installed HPLIP database"
     return Plan(device=device, method=Method.UNSUPPORTED, scan=scan, reason=reason)

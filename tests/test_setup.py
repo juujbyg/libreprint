@@ -337,7 +337,7 @@ def test_run_auto_waits_for_ipp_usb_endpoint():
     )
     outcomes = run_auto(runner, Config(), usb_only=True)
     assert runner.slept == [2]
-    assert [o.status for o in outcomes] == ["created"]
+    assert [o.status for o in outcomes] == ["created", "unsupported"]  # HP M404, Canon MG3600
     assert outcomes[0].plan.uri == "ipp://localhost:60000/ipp/print"
     assert outcomes[0].plan.ppd == "everywhere"
 
@@ -351,8 +351,8 @@ def test_run_auto_retries_until_device():
     )  # fmt: skip
     outcomes = run_auto(runner, Config(), usb_only=True)
     assert runner.slept == [2, 4]
-    assert len(outcomes) == 1
-    assert outcomes[0].status == "created"
+    assert [o.status for o in outcomes] == ["created", "unsupported"]
+    assert "manufacturer's Linux driver" in outcomes[1].message
 
 
 def test_run_auto_gives_up_after_six_tries():
@@ -389,5 +389,6 @@ def test_watch_triggers_once_per_device():
         uscan,
     ]
     watch(runner, Config())
-    assert len(lpadmin_creates(runner)) == 1
+    created = [argv[2] for argv in lpadmin_creates(runner)]
+    assert created == ["HP_OfficeJet_Pro_9010_series", "Brother_HL_L2350DW_series"]
     assert runner.slept == [5]

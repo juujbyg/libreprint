@@ -1,5 +1,5 @@
 [Unit]
-Description=LibrePrint: watch the network for new HP printers
+Description=LibrePrint: watch the network for new printers
 After=avahi-daemon.service cups.service
 Wants=avahi-daemon.service
 

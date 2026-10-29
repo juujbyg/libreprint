@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="docs/screenshots/status.png" alt="LibrePrint showing an HP printer, its print queue and ink levels" width="720">
+<img src="docs/screenshots/status.png" alt="LibrePrint showing a printer, its print queue and ink levels" width="720">
 
 # LibrePrint
 
-**Use your HP printer on Linux — print, scan and check ink without HP Smart.**
+**Use any printer on Linux — print, scan and check ink without the manufacturer's app.**
 
 [![CI](https://github.com/YOUR-USERNAME/libreprint/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-USERNAME/libreprint/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/YOUR-USERNAME/libreprint)](https://github.com/YOUR-USERNAME/libreprint/releases/latest)
@@ -12,17 +12,23 @@
 
 </div>
 
-HP's own apps for Linux are hard to live with. LibrePrint finds your HP printer (Wi-Fi, network or
-USB), sets it up with the right driver, and gives you a simple app to print, scan, watch ink levels
-and fix problems — on Ubuntu and Debian, with one command.
+Printer makers' apps for Linux are hard to live with, when they exist at all. LibrePrint finds your
+printer (Wi-Fi, network or USB), sets it up with the right driver, and gives you a simple app to
+print, scan, watch ink levels and fix problems — on Ubuntu and Debian, with one command.
 
-> **LibrePrint is not affiliated with, endorsed by, or sponsored by HP Inc.** "HP" is a trademark
-> of HP Inc., used here only to describe the devices the tool works with.
+It works with **any printer that supports driverless printing (IPP Everywhere / AirPrint)** — almost
+every model sold in the last ten years, from HP, Canon, Epson, Brother, Samsung, Xerox, Lexmark,
+Kyocera, Ricoh and others. **Older HP models** that predate driverless printing are also covered,
+through HPLIP.
+
+> **LibrePrint is not affiliated with, endorsed by, or sponsored by any printer manufacturer.**
+> Brand names are trademarks of their owners, used here only to describe the devices the tool
+> works with.
 
 ## Features
 
-- **One-command setup.** Detects HP printers on the network or USB and creates the print queue,
-  preferring driverless IPP Everywhere and falling back to HPLIP only when needed.
+- **One-command setup.** Detects printers of any make on the network or USB and creates the print
+  queue with driverless IPP Everywhere, falling back to HPLIP for older HP models.
 - **Ink levels at a glance**, with a warning when a cartridge is running low.
 - **Print queue you can see and control** — a banner on every screen while something prints, and
   one click to cancel a job or all of them.
@@ -76,8 +82,8 @@ amd64 and arm64. Python 3.10 or newer, standard library only: nothing is install
 
 ## How it works
 
-LibrePrint is **not a new driver**. Support for HP devices already exists in the Linux printing
-stack; LibrePrint is the glue that picks the right piece and wires it up. It builds on:
+LibrePrint is **not a new driver**. Support for your printer most likely already exists in the
+Linux printing stack; LibrePrint is the glue that picks the right piece and wires it up. It builds on:
 
 - [CUPS](https://openprinting.github.io/cups/) and IPP Everywhere (driverless printing),
 - [ipp-usb](https://github.com/OpenPrinting/ipp-usb) (driverless access to USB printers),
@@ -97,7 +103,7 @@ libreprint plugin [--yes]
 | Command | What it does |
 |---|---|
 | `libreprint gui` | Opens the LibrePrint app (also in your app menu). |
-| `libreprint setup` | Detects HP devices and creates their print queues (and scanner setup). `--yes` answers every question automatically. `--uri` configures a specific device URI instead of discovering. `--no-test-page` skips the test page. `--force` reconfigures a queue that already exists. |
+| `libreprint setup` | Detects printers and creates their print queues (and scanner setup). `--yes` answers every question automatically. `--uri` configures a specific device URI instead of discovering. `--no-test-page` skips the test page. `--force` reconfigures a queue that already exists. |
 | `libreprint list` | Shows detected devices as `MODEL  CONNECTION  METHOD  QUEUE`. `--json` gives machine-readable output. |
 | `libreprint doctor` | Runs diagnostics and prints `[ OK ]` / `[FAIL]` / `[WARN]` / `[SKIP]` for each, with a suggested fix command. `--fix` applies the available fixes. `--json` produces output to attach to bug reports. |
 | `libreprint plugin` | Installs HP's proprietary plugin (see [HP plugin licensing](#hp-plugin-licensing)), then finishes any setup that was waiting for it. |
@@ -105,7 +111,7 @@ libreprint plugin [--yes]
 `setup`, `plugin` and `doctor --fix` need root. Run as a normal user in a terminal and LibrePrint
 re-runs itself with `sudo`; without a terminal it exits with code 3.
 
-Exit codes: `0` ok, `1` error, `2` usage, `3` needs root, `4` no HP device found, `5` user action
+Exit codes: `0` ok, `1` error, `2` usage, `3` needs root, `4` no printer found, `5` user action
 required (plugin license).
 
 LibrePrint never modifies or deletes a print queue it did not create unless you pass `--force`.
@@ -113,20 +119,21 @@ Running `setup` twice changes nothing.
 
 ## How it chooses a driver
 
-For each HP device found, LibrePrint picks the first method that applies:
+For each printer found, LibrePrint picks the first method that applies:
 
 1. **Driverless (IPP Everywhere).** The device advertises IPP Everywhere (raster formats such
    as `image/pwg-raster` or `image/urf`) over the network or through `ipp-usb`. The queue is
    created with `lpadmin -m everywhere`; `ipps://` is preferred over `ipp://`.
-2. **HPLIP.** The model is listed as supported in the installed HPLIP database
+2. **HPLIP** (HP only). The model is listed as supported in the installed HPLIP database
    (`/usr/share/hplip/data/models/models.dat`) and needs no plugin. The queue uses the
    `hp:` URI and the matching `hpcups` driver.
 3. **HPLIP + plugin.** Same as above, but the database marks the model as requiring HP's plugin.
-4. **Unsupported.** The model is unknown to the installed HPLIP, or HPLIP lists it as
-   unsupported; LibrePrint says why instead of guessing.
+4. **Unsupported.** A printer of another make without driverless support (install the
+   manufacturer's Linux driver), or an HP model unknown to the installed HPLIP or listed as
+   unsupported by it; LibrePrint says why instead of guessing.
 
-Scanning is configured separately: devices that advertise eSCL (`_uscan._tcp`) use
-`sane-airscan`; otherwise HPLIP models with scan support use `libsane-hpaio`.
+Scanning is configured separately: devices of any make that advertise eSCL (`_uscan._tcp`,
+the "AirScan" protocol) use `sane-airscan`; otherwise HP models with scan support use `libsane-hpaio`.
 
 Missing packages (for example `hplip`, `printer-driver-hpcups`, `sane-airscan`) are installed
 with `apt-get` unless you set `install_packages = false`.
@@ -135,9 +142,9 @@ with `apt-get` unless you set `install_packages = false`.
 
 The package installs a udev rule and two systemd units:
 
-- **USB:** when an HP USB device is plugged in, `libreprint-usb@.service` runs `libreprint auto --usb`.
+- **USB:** when a USB printer is plugged in, `libreprint-usb@.service` runs `libreprint auto --usb`.
 - **Network:** `libreprint-netwatch.service` runs `libreprint watch`, which watches mDNS (Avahi) for new
-  HP printers.
+  printers. Queues shared by other computers' CUPS servers are ignored.
 - Right after installation, `libreprint auto --all` configures printers that are already connected.
 
 Automatic mode never asks questions, never installs the HP plugin unless you opted in, and

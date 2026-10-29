@@ -58,11 +58,12 @@ def test_nss_mdns():
     assert check.fix_argv == ("apt-get", "install", "-y", "libnss-mdns")
 
 
-def test_ipp_usb_only_with_hp_usb_device():
+def test_ipp_usb_only_with_a_usb_printer():
     runner = healthy()
+    runner.on("lsusb", "-v", out="      bInterfaceClass         9 Hub\n")
     assert by_id(doctor.run_checks(runner, []), "ipp-usb").status == "skip"
 
-    runner.on("lsusb", "-d", "03f0:", out="Bus 001 Device 004: ID 03f0:2a17 HP, Inc\n")
+    runner.on("lsusb", "-v", out="      bInterfaceClass         7 Printer\n")
     assert by_id(doctor.run_checks(runner, []), "ipp-usb").status == "ok"
 
     runner.on(*DPKG_STATUS, "ipp-usb", code=1)
@@ -109,7 +110,11 @@ def test_disabled_queues_one_check_each():
     )
     checks = doctor.run_checks(runner, [])
     failing = [c for c in checks if c.id.startswith("queue-enabled:")]
-    assert [c.id for c in failing] == ["queue-enabled:HP_A", "queue-enabled:HP_B"]
+    assert [c.id for c in failing] == [
+        "queue-enabled:HP_A",
+        "queue-enabled:HP_B",
+        "queue-enabled:Other",
+    ]
     assert failing[0].fix_argv == ("cupsenable", "HP_A")
     assert all(c.status == "fail" for c in failing)
     assert not any(c.id == "queues-enabled" for c in checks)
@@ -240,3 +245,14 @@ def test_to_json_valid():
     assert data["hplip"] == "3.23.12"
     assert {c["id"] for c in data["checks"]} >= {"cups-service", "user-groups"}
     assert data["devices"][0]["model"] == "LaserJet Pro M404"
+
+
+def test_other_make_without_driverless_support_warns():
+    canon = Device(model="MG3600 series", connection="usb", make="Canon")
+    epson = Device(model="ET-2810", connection="network", ipp_everywhere=True, make="Epson")
+    check = by_id(doctor.run_checks(healthy(), [canon, epson]), "hplip-model")
+    assert check.status == "warn"
+    assert "Canon MG3600 series" in check.message
+    assert "manufacturer's Linux driver" in check.message
+    assert "Epson" not in check.message
+    assert by_id(doctor.run_checks(healthy(), [epson]), "hplip-model").status == "skip"

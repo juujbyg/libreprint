@@ -5,3 +5,4 @@
 =;eth0;IPv4;HP\032LaserJet\032P2055dn;_pdl-datastream._tcp;local;NPI1.local;192.168.1.60;9100;"ty=HP LaserJet P2055dn" "product=(HP LaserJet P2055dn)"
 =;eth0;IPv4;Brother\032HL-L2350DW;_ipp._tcp;local;BRN1.local;192.168.1.70;631;"ty=Brother HL-L2350DW series" "pdl=image/urf" "usb_MFG=Brother"
 =;lo;IPv4;HP\032LaserJet\032Pro\032M404\032\091USB\093;_ipp._tcp;local;localhost;127.0.0.1;60000;"ty=HP LaserJet Pro M404" "pdl=image/urf,image/pwg-raster" "rp=ipp/print" "UUID=aaaa0000-0000-1000-8000-000000000404" "usb_MFG=HP" "usb_MDL=LaserJet Pro M404"
+=;eth0;IPv4;Shared\032Printer\032\064\032server;_ipp._tcp;local;server.local;192.168.1.80;631;"txtvers=1" "rp=printers/Shared" "ty=Shared Printer" "pdl=application/pdf,image/urf" "printer-state=3" "printer-type=0x809046"

@@ -69,7 +69,7 @@ def test_doctor_fix_requires_root(monkeypatch):
 
 def test_setup_no_devices_exit_4(capsys):
     assert cli.main(["setup", "--yes"], make_runner(), euid=0) == 4
-    assert "no HP device" in capsys.readouterr().err
+    assert "no printer found" in capsys.readouterr().err
 
 
 def test_setup_creates_queue_via_uri(capsys):
