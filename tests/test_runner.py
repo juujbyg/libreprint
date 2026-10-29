@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 import sys
 
-from hpeasy.runner import FakeRunner, Result, Runner
+from libreprint.runner import FakeRunner, Result, Runner
 
 
 def test_runner_forces_c_locale():

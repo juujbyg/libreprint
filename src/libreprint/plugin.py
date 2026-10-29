@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""HP proprietary plugin status and installation (never redistributed by hpeasy)."""
+"""HP proprietary plugin status and installation (never redistributed by libreprint)."""
 
 from __future__ import annotations
 
 import configparser
 import re
 
-from hpeasy.runner import Runner
+from libreprint.runner import Runner
 
 HPLIP_STATE = "/var/lib/hp/hplip.state"
 

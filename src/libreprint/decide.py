@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from hpeasy.models import Device, HplipInfo, Method, Plan, ScanMethod
-from hpeasy.queues import queue_name
+from libreprint.models import Device, HplipInfo, Method, Plan, ScanMethod
+from libreprint.queues import queue_name
 
 HPLIP_PACKAGES = ["hplip", "printer-driver-hpcups"]
 ESCL_PACKAGES = ["sane-airscan", "sane-utils"]

@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 import pytest
 
-from hpeasy import state
-from hpeasy.runner import FakeRunner
-from hpeasy.state import Config, State
-from hpeasy.ui import AutoUI, ConsoleUI
+from libreprint import state
+from libreprint.runner import FakeRunner
+from libreprint.state import Config, State
+from libreprint.ui import AutoUI, ConsoleUI
 
 
 class FakeStdin:
@@ -33,6 +33,14 @@ def test_state_missing_is_empty():
     assert state.load_state(FakeRunner()) == State()
 
 
+def test_state_falls_back_to_legacy_path():
+    legacy = '{"queues": {"HP_A": "LaserJet A"}, "pending_plugin": []}'
+    r = FakeRunner(files={state.LEGACY_STATE_PATH: legacy})
+    assert state.load_state(r) == State(queues={"HP_A": "LaserJet A"})
+    r.files[state.STATE_PATH] = '{"queues": {}, "pending_plugin": []}'
+    assert state.load_state(r) == State()
+
+
 def test_state_corrupt_json():
     assert state.load_state(FakeRunner(files={state.STATE_PATH: "{not json"})) == State()
     assert state.load_state(FakeRunner(files={state.STATE_PATH: "[1, 2]"})) == State()
@@ -46,7 +54,7 @@ def test_state_instances_do_not_share_defaults():
 
 def test_config_defaults_and_invalid():
     assert state.load_config(FakeRunner()) == Config()
-    text = "[hpeasy]\nnetwork = maybe\naccept_hp_plugin_license = yes\nusb = bogus\n"
+    text = "[libreprint]\nnetwork = maybe\naccept_hp_plugin_license = yes\nusb = bogus\n"
     cfg = state.load_config(FakeRunner(files={state.CONFIG_PATH: text}))
     assert cfg.network == "add"
     assert cfg.accept_hp_plugin_license is True
@@ -55,7 +63,7 @@ def test_config_defaults_and_invalid():
 
 
 def test_config_values():
-    text = "[hpeasy]\nnetwork = off\nusb = false\ninstall_packages = no\n"
+    text = "[libreprint]\nnetwork = off\nusb = false\ninstall_packages = no\n"
     cfg = state.load_config(FakeRunner(files={state.CONFIG_PATH: text}))
     assert cfg == Config(usb=False, network="off", install_packages=False)
 
@@ -66,7 +74,7 @@ def test_config_garbage_file():
 
 def test_lock_is_exclusive(tmp_path):
     fcntl = pytest.importorskip("fcntl")
-    path = str(tmp_path / "hpeasy.lock")
+    path = str(tmp_path / "libreprint.lock")
     with state.lock(path), open(path, "a+") as other, pytest.raises(BlockingIOError):
         fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
     with open(path, "a+") as again:
@@ -112,4 +120,4 @@ def test_auto_ui(capsys):
     assert ui.confirm("Go?") is False
     assert ui.choose("Pick", ["a", "b"]) == [0, 1]
     ui.info("hello")
-    assert capsys.readouterr().out.startswith("hpeasy: hello")
+    assert capsys.readouterr().out.startswith("libreprint: hello")

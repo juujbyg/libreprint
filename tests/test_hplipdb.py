@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 from conftest import fixture
 
-from hpeasy import hplipdb
-from hpeasy.runner import FakeRunner
+from libreprint import hplipdb
+from libreprint.runner import FakeRunner
 
 
 def db():

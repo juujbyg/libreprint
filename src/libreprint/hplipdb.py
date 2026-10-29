@@ -6,8 +6,8 @@ from __future__ import annotations
 import configparser
 import re
 
-from hpeasy.models import HplipInfo
-from hpeasy.runner import Runner
+from libreprint.models import HplipInfo
+from libreprint.runner import Runner
 
 MODELS_DAT = "/usr/share/hplip/data/models/models.dat"
 

@@ -8,12 +8,12 @@ from types import SimpleNamespace
 import pytest
 from conftest import fixture
 
-from hpeasy import __version__, cli
-from hpeasy import setup as setup_mod
-from hpeasy.hplipdb import MODELS_DAT
-from hpeasy.plugin import HPLIP_STATE
-from hpeasy.runner import FakeRunner
-from hpeasy.state import STATE_PATH
+from libreprint import __version__, cli
+from libreprint import setup as setup_mod
+from libreprint.hplipdb import MODELS_DAT
+from libreprint.plugin import HPLIP_STATE
+from libreprint.runner import FakeRunner
+from libreprint.state import STATE_PATH
 
 DPKG_STATUS = ("dpkg-query", "-W", "-f=${db:Status-Status}")
 P1102_LPINFO = (
@@ -58,7 +58,7 @@ def test_setup_reexecs_with_sudo_on_tty(monkeypatch):
     seen = []
     monkeypatch.setattr(os, "execvp", lambda f, a: seen.append((f, a)))
     cli.main(["setup", "--yes"], make_runner(), euid=1000)
-    assert seen == [("sudo", ["sudo", sys.executable, "-m", "hpeasy", "setup", "--yes"])]
+    assert seen == [("sudo", ["sudo", sys.executable, "-m", "libreprint", "setup", "--yes"])]
 
 
 def test_doctor_fix_requires_root(monkeypatch):
@@ -86,7 +86,7 @@ def test_setup_needs_plugin_exit_5(capsys):
     runner = make_runner(files={MODELS_DAT: fixture("models.dat")})
     runner.on("lpinfo", "-l", "-v", out=P1102_LPINFO)
     assert cli.main(["setup", "--yes"], runner, euid=0) == 5
-    assert "needs the HP plugin: run sudo hpeasy plugin" in capsys.readouterr().out
+    assert "needs the HP plugin: run sudo libreprint plugin" in capsys.readouterr().out
 
 
 def test_setup_unsupported_exit_1(capsys):

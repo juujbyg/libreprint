@@ -10,11 +10,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 
-from hpeasy.runner import Runner
+from libreprint.runner import Runner
 
-STATE_PATH = "/var/lib/hpeasy/state.json"
-CONFIG_PATH = "/etc/hpeasy/hpeasy.conf"
-LOCK_PATH = "/run/hpeasy.lock"
+STATE_PATH = "/var/lib/libreprint/state.json"
+LEGACY_STATE_PATH = "/var/lib/hpeasy/state.json"  # before the rename to LibrePrint
+CONFIG_PATH = "/etc/libreprint/libreprint.conf"
+LOCK_PATH = "/run/libreprint.lock"
 
 
 @dataclass
@@ -25,6 +26,8 @@ class State:
 
 def load_state(runner: Runner) -> State:
     text = runner.read_file(STATE_PATH)
+    if text is None:
+        text = runner.read_file(LEGACY_STATE_PATH)
     if text is None:
         return State()
     try:
@@ -68,11 +71,11 @@ def load_config(runner: Runner) -> Config:
 
     def flag(key: str, fallback: bool) -> bool:
         try:
-            return parser.getboolean("hpeasy", key, fallback=fallback)
+            return parser.getboolean("libreprint", key, fallback=fallback)
         except ValueError:
             return fallback
 
-    network = parser.get("hpeasy", "network", fallback=default.network).strip().lower()
+    network = parser.get("libreprint", "network", fallback=default.network).strip().lower()
     if network not in ("add", "off"):
         network = default.network
     return Config(

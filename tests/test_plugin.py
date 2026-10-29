@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-from hpeasy import plugin
-from hpeasy.runner import FakeRunner
+from libreprint import plugin
+from libreprint.runner import FakeRunner
 
 VERSION_Q = ["dpkg-query", "-W", "-f=${Version}", "hplip"]
 

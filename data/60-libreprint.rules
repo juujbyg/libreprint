@@ -1,0 +1,2 @@
+# libreprint: configure HP USB devices when they are plugged in.
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="03f0", TAG+="systemd", ENV{SYSTEMD_WANTS}+="libreprint-usb@%k.service"

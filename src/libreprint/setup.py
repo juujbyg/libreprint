@@ -8,21 +8,21 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-from hpeasy import deps, hplipdb, plugin, scanning
-from hpeasy import state as state_mod
-from hpeasy.decide import best_ipp_uri, decide
-from hpeasy.discovery import discover, parse_avahi, probe_uri
-from hpeasy.hplipdb import normalize_model
-from hpeasy.models import Device, Method, Plan, ScanMethod
-from hpeasy.queues import (
+from libreprint import deps, hplipdb, plugin, scanning
+from libreprint import state as state_mod
+from libreprint.decide import best_ipp_uri, decide
+from libreprint.discovery import discover, parse_avahi, probe_uri
+from libreprint.hplipdb import normalize_model
+from libreprint.models import Device, Method, Plan, ScanMethod
+from libreprint.queues import (
     find_existing,
     find_hpcups_ppd,
     lpadmin_argv,
     parse_lpstat_v,
 )
-from hpeasy.runner import Result, Runner
-from hpeasy.state import Config, State, save_state
-from hpeasy.ui import UI, AutoUI
+from libreprint.runner import Result, Runner
+from libreprint.state import Config, State, save_state
+from libreprint.ui import UI, AutoUI
 
 TEST_PAGE = "/usr/share/cups/data/testprint"
 
@@ -30,7 +30,7 @@ AUTO_RETRY_DELAYS = [2, 4, 8, 16, 30]
 WATCH_SETTLE_SECONDS = 5
 
 _PLUGIN_NOTICE = (
-    "This printer needs HP's proprietary plugin. It is not part of hpeasy or of your "
+    "This printer needs HP's proprietary plugin. It is not part of libreprint or of your "
     "distribution: it is downloaded from HP and is covered by HP's own license."
 )
 
@@ -143,6 +143,8 @@ def _configure_scanner(
 ) -> None:
     if plan.scan is ScanMethod.HPAIO and not scanning.hpaio_enabled(runner):
         scanning.enable_hpaio(runner)
+    if plan.scan is ScanMethod.ESCL:
+        scanning.disable_escl_backend(runner)
     if plan.scan is ScanMethod.NONE:
         return
     found = scanning.scanner_for(scanning.list_scanners(runner), device.model)
@@ -206,7 +208,7 @@ def _setup_device(
         if device.model not in state.pending_plugin:
             state.pending_plugin.append(device.model)
         save_state(runner, state)
-        return Outcome(device, "needs-plugin", plan=plan, message="run: sudo hpeasy plugin")
+        return Outcome(device, "needs-plugin", plan=plan, message="run: sudo libreprint plugin")
 
     # 7. Create the queue.
     assert plan.queue is not None

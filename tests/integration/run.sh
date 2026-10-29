@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # End-to-end test in a container: real cupsd + ippeveprinter acting as an HP printer.
-# Expects hpeasy, cups, cups-ipp-utils and cups-filters to be installed; runs as root.
+# Expects libreprint, cups, cups-ipp-utils and cups-filters to be installed; runs as root.
 set -euo pipefail
 
 QUEUE="HP_Fake_LaserJet"
@@ -54,8 +54,8 @@ ippeveprinter -M HP -m "Fake LaserJet" -p 8631 \
 pids+=("$!")
 wait_for 30 port_open || { cat /tmp/ippeveprinter.log >&2 || true; fail "ippeveprinter did not open port 8631"; }
 
-echo "== hpeasy setup"
-hpeasy setup --uri "$URI" --yes --no-test-page
+echo "== libreprint setup"
+libreprint setup --uri "$URI" --yes --no-test-page
 lpstat -v | grep -q "$QUEUE" || fail "queue $QUEUE not found in lpstat -v"
 
 echo "== print a job"
@@ -63,12 +63,12 @@ lp -d "$QUEUE" /usr/share/cups/data/testprint
 wait_for 90 queue_empty || fail "print job did not finish within 90 s"
 
 echo "== setup is idempotent"
-hpeasy setup --uri "$URI" --yes --no-test-page
+libreprint setup --uri "$URI" --yes --no-test-page
 count="$(lpstat -v | grep -c "$QUEUE" || true)"
 [ "$count" -eq 1 ] || fail "expected exactly one $QUEUE queue, found $count"
 
 echo "== doctor and list"
-hpeasy doctor --json | python3 -m json.tool >/dev/null
-hpeasy list
+libreprint doctor --json | python3 -m json.tool >/dev/null
+libreprint list
 
 echo "integration test passed"

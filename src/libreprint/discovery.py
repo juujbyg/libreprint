@@ -7,9 +7,9 @@ import dataclasses
 import re
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from hpeasy.hplipdb import normalize_model
-from hpeasy.models import Device
-from hpeasy.runner import Runner
+from libreprint.hplipdb import normalize_model
+from libreprint.models import Device
+from libreprint.runner import Runner
 
 _HP_NAME = re.compile(r"^(hewlett[- ]?packard|hp)(?![a-z0-9])", re.IGNORECASE)
 _HP_PREFIX = re.compile(r"^(hewlett[- ]?packard|hp)\s+", re.IGNORECASE)
@@ -170,12 +170,18 @@ def parse_avahi(out: str) -> list[Device]:
 # --- ipptool ----------------------------------------------------------------
 
 
-def parse_ipptool(out: str, uri: str) -> Device | None:
+def ipp_attributes(out: str) -> dict[str, str]:
+    """Map attribute name to raw value from ``ipptool -tv`` output (first occurrence wins)."""
     attrs: dict[str, str] = {}
     for line in out.splitlines():
         m = _IPP_ATTR.match(line)
         if m:
             attrs.setdefault(m.group(1), m.group(2).strip())
+    return attrs
+
+
+def parse_ipptool(out: str, uri: str) -> Device | None:
+    attrs = ipp_attributes(out)
     make_model = attrs.get("printer-make-and-model")
     if not make_model:
         return None
@@ -253,10 +259,48 @@ def merge(devices: list[Device]) -> list[Device]:
 # --- runner-backed entry points ---------------------------------------------
 
 
+def parse_airscan(out: str) -> list[tuple[str, str]]:
+    """Return ``(model, ip)`` pairs for HP eSCL scanners listed by ``airscan-discover``."""
+    found: list[tuple[str, str]] = []
+    for line in out.splitlines():
+        name, sep, rest = line.strip().partition(" = ")
+        if not sep or not rest.endswith(", eSCL") or not _is_hp_name(name):
+            continue
+        host = urlsplit(rest.split(",")[0].strip()).hostname or ""
+        if re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host):
+            found.append((_strip_hp(_TRAILING_BRACKET.sub("", name)), host))
+    return found
+
+
+def _discover_without_avahi(runner: Runner) -> list[Device]:
+    """Network discovery through ippfind/ipptool when avahi-browse is not installed."""
+    res = runner.run(["ippfind", "-T", "5", "_ipp._tcp", "_ipps._tcp"], timeout=20)
+    devices: list[Device] = []
+    for uri in dict.fromkeys(line.strip() for line in res.out.splitlines()):
+        if not uri.startswith(("ipp://", "ipps://")):
+            continue
+        out = runner.run(["ipptool", "-T", "10", "-tv", uri, "get-printer-attributes.test"]).out
+        dev = parse_ipptool(out, uri)
+        if dev is not None and re.search(r"printer-make-and-model \([^)]*\) = (HP|Hewlett)", out):
+            devices.append(dev)
+    devices = merge(devices)
+    scanners = parse_airscan(runner.run(["airscan-discover"], timeout=30).out)
+    for dev in devices:
+        for model, ip in scanners:
+            if normalize_model(model) == normalize_model(dev.model):
+                dev.escl = True
+                dev.ip = dev.ip or ip
+    return devices
+
+
 def discover(runner: Runner) -> list[Device]:
     found: list[Device] = []
     found.extend(parse_lpinfo(runner.run(["lpinfo", "-l", "-v"], timeout=60).out))
-    found.extend(parse_avahi(runner.run(["avahi-browse", "-a", "-r", "-p", "-t"], timeout=15).out))
+    avahi = runner.run(["avahi-browse", "-a", "-r", "-p", "-t"], timeout=15)
+    if avahi.code == 127:
+        found.extend(_discover_without_avahi(runner))
+    else:
+        found.extend(parse_avahi(avahi.out))
     return merge(found)
 
 

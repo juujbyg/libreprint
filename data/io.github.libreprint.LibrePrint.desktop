@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=LibrePrint
+GenericName=HP Printer
+Comment=Ink levels, printing, scanning and diagnostics for HP printers
+Exec=libreprint gui
+Icon=printer
+Terminal=false
+Categories=Settings;HardwareSettings;Printing;
+Keywords=printer;scanner;scan;ink;HP;
+StartupNotify=true

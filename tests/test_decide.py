@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 import pytest
 
-from hpeasy.decide import best_ipp_uri, decide
-from hpeasy.models import Device, HplipInfo, Method, ScanMethod
+from libreprint.decide import best_ipp_uri, decide
+from libreprint.models import Device, HplipInfo, Method, ScanMethod
 
 PLAIN = HplipInfo("laserjet_pro_m404", supported=True, plugin=False, scan=False)
 PLUGIN = HplipInfo("laserjet_professional_p1102", supported=True, plugin=True, scan=False)

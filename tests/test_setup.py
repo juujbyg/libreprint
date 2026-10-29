@@ -5,14 +5,14 @@ from contextlib import nullcontext
 import pytest
 from conftest import fixture
 
-from hpeasy import setup as setup_mod
-from hpeasy.hplipdb import MODELS_DAT
-from hpeasy.models import Device
-from hpeasy.plugin import HPLIP_STATE
-from hpeasy.runner import FakeRunner, Result
-from hpeasy.setup import Options, run_auto, run_setup, setup_device, watch
-from hpeasy.state import STATE_PATH, Config, State
-from hpeasy.ui import AutoUI
+from libreprint import setup as setup_mod
+from libreprint.hplipdb import MODELS_DAT
+from libreprint.models import Device
+from libreprint.plugin import HPLIP_STATE
+from libreprint.runner import FakeRunner, Result
+from libreprint.setup import Options, run_auto, run_setup, setup_device, watch
+from libreprint.state import STATE_PATH, Config, State
+from libreprint.ui import AutoUI
 
 DPKG_STATUS = ("dpkg-query", "-W", "-f=${db:Status-Status}")
 OFFICEJET_URI = "ipp://192.168.1.50:631/ipp/print"
@@ -170,7 +170,7 @@ def test_setup_plugin_auto_without_consent():
     runner = make_runner(models_dat=fixture("models.dat"))
     outcome, state = setup(runner, p1102())
     assert outcome.status == "needs-plugin"
-    assert outcome.message == "run: sudo hpeasy plugin"
+    assert outcome.message == "run: sudo libreprint plugin"
     assert not any(c[0] == "hp-plugin" for c in runner.calls)
     assert state.pending_plugin == ["LaserJet Professional P1102"]
     assert not lpadmin_creates(runner)
@@ -291,7 +291,7 @@ def test_setup_enables_hpaio_and_finds_scanner():
     )
     outcome, _ = setup(runner, device)
     assert outcome.status == "created"
-    assert runner.files["/etc/sane.d/dll.d/hpeasy"] == "hpaio\n"
+    assert runner.files["/etc/sane.d/dll.d/libreprint"] == "hpaio\n"
     assert outcome.scanner == "hpaio:/net/officejet_pro_8600?ip=10.0.0.5"
 
 

@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hpeasy"
+name = "libreprint"
 dynamic = ["version"]
 description = "Set up any HP printer or MFP on Debian/Ubuntu with one command (not affiliated with HP Inc.)"
 readme = "README.md"
@@ -12,10 +12,10 @@ license = {text = "GPL-2.0-or-later"}
 dependencies = []
 
 [project.scripts]
-hpeasy = "hpeasy.cli:main"
+libreprint = "libreprint.cli:main"
 
 [tool.setuptools.dynamic]
-version = {attr = "hpeasy.__version__"}
+version = {attr = "libreprint.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

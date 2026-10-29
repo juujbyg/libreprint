@@ -1,6 +1,6 @@
-# Contributing to hpeasy
+# Contributing to LibrePrint
 
-Thanks for helping. hpeasy is pure Python (standard library only at runtime) and targets
+Thanks for helping. LibrePrint is pure Python (standard library only at runtime) and targets
 Ubuntu 22.04 / 24.04 / 26.04 and Debian 12 / 13.
 
 ## Setup
@@ -17,25 +17,25 @@ ruff check src tests
 - Python >= 3.10, standard library only. No `tomllib`, `ExceptionGroup` or `typing.Self`.
 - Every source file starts with `# SPDX-License-Identifier: GPL-2.0-or-later`.
 - Every external command and every file access goes through the injectable `Runner`
-  (`src/hpeasy/runner.py`). Tests use `FakeRunner` with real recorded command output in
+  (`src/libreprint/runner.py`). Tests use `FakeRunner` with real recorded command output in
   `tests/fixtures/`; tests never run system commands or touch the real filesystem.
 - Commands run with `LC_ALL=C`, so parsers can assume English output.
-- Never redistribute HP's plugin. Never modify or delete a queue hpeasy did not create (except
+- Never redistribute HP's plugin. Never modify or delete a queue LibrePrint did not create (except
   with `--force`).
 - User-facing messages are in English.
 - Shell scripts and unit files use LF line endings (enforced by `.gitattributes`).
 
 ## Layout
 
-`src/hpeasy/decide.py` is a pure function (device in, plan out); `setup.py` executes plans;
+`src/libreprint/decide.py` is a pure function (device in, plan out); `setup.py` executes plans;
 `doctor.py` holds the diagnostics; `cli.py` is the argparse entry point. System files are in
 `data/`, packaging in `packaging/`.
 
 ## Packaging and integration tests
 
-`bash packaging/build-deb.sh` builds `dist/hpeasy_<version>_all.deb` (needs `dpkg-deb`). The CI
+`bash packaging/build-deb.sh` builds `dist/libreprint_<version>_all.deb` (needs `dpkg-deb`). The CI
 workflow installs it in Ubuntu and Debian containers and runs `tests/integration/run.sh`, which
-starts `cupsd` and a fake HP printer (`ippeveprinter`) and checks that `hpeasy setup` creates a
+starts `cupsd` and a fake HP printer (`ippeveprinter`) and checks that `libreprint setup` creates a
 working queue.
 
 ## Adding a fixture

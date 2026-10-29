@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Plain data models shared across hpeasy."""
+"""Plain data models shared across libreprint."""
 
 from __future__ import annotations
 

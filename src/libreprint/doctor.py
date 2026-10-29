@@ -6,12 +6,12 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 
-from hpeasy import __version__, deps, hplipdb, plugin, scanning
-from hpeasy.discovery import discover
-from hpeasy.models import Check, Device
-from hpeasy.queues import disabled_queues, parse_lpstat_v
-from hpeasy.runner import Runner
-from hpeasy.state import load_state
+from libreprint import __version__, deps, hplipdb, plugin, scanning
+from libreprint.discovery import discover
+from libreprint.models import Check, Device
+from libreprint.queues import disabled_queues, parse_lpstat_v
+from libreprint.runner import Runner
+from libreprint.state import load_state
 
 HP_USB_ID = "03f0:"
 SCANNER_PACKAGES = ["sane-airscan", "libsane-hpaio"]
@@ -124,7 +124,7 @@ def _check_plugin(runner: Runner) -> Check:
             "hp-plugin",
             "fail",
             f"the HP plugin is required for: {', '.join(pending)}",
-            fix="sudo hpeasy plugin",
+            fix="sudo libreprint plugin",
         )
     have, want = plugin.plugin_version(runner), plugin.hplip_version(runner)
     if have is not None and want is not None and have != want:
@@ -132,7 +132,7 @@ def _check_plugin(runner: Runner) -> Check:
             "hp-plugin",
             "fail",
             f"HP plugin version {have} does not match HPLIP {want}",
-            fix="sudo hpeasy plugin",
+            fix="sudo libreprint plugin",
         )
     return Check("hp-plugin", "ok", "no HP plugin problem detected")
 

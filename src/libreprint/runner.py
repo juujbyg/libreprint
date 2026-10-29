@@ -38,6 +38,7 @@ class Runner:
                 check=False,
                 capture_output=True,
                 text=True,
+                errors="replace",
                 timeout=timeout,
                 env=_env(),
             )
@@ -60,6 +61,7 @@ class Runner:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 text=True,
+                errors="replace",
                 env=_env(),
             )
         except FileNotFoundError:

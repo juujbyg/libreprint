@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import re
 
-from hpeasy.hplipdb import normalize_model
-from hpeasy.runner import Runner
+from libreprint.hplipdb import normalize_model
+from libreprint.runner import Runner
 
 DLL_CONF = "/etc/sane.d/dll.conf"
 DLL_D = "/etc/sane.d/dll.d"
@@ -25,7 +25,22 @@ def hpaio_enabled(runner: Runner) -> bool:
 
 
 def enable_hpaio(runner: Runner) -> None:
-    runner.write_file(f"{DLL_D}/hpeasy", "hpaio\n")
+    runner.write_file(f"{DLL_D}/libreprint", "hpaio\n")
+
+
+def disable_escl_backend(runner: Runner) -> bool:
+    """Comment out sane-backends' ``escl`` in dll.conf; sane-airscan drives the same scanners.
+
+    With both enabled every scanner shows up twice, and some ``escl`` versions dump the
+    printer's gzipped web page to stdout during ``scanimage -L``.
+    """
+    text = runner.read_file(DLL_CONF)
+    if text is None or not any(line.strip() == "escl" for line in text.splitlines()):
+        return False
+    note = "#escl  # disabled by LibrePrint: sane-airscan handles eSCL"
+    lines = [note if line.strip() == "escl" else line for line in text.splitlines()]
+    runner.write_file(DLL_CONF, "\n".join(lines) + "\n")
+    return True
 
 
 def list_scanners(runner: Runner) -> list[str]:

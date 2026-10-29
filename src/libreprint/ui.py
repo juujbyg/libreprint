@@ -77,10 +77,10 @@ class AutoUI:
     interactive = False
 
     def info(self, msg: str) -> None:
-        print(f"hpeasy: {msg}", flush=True)
+        print(f"libreprint: {msg}", flush=True)
 
     def warn(self, msg: str) -> None:
-        print(f"hpeasy: warning: {msg}", flush=True)
+        print(f"libreprint: warning: {msg}", flush=True)
 
     def confirm(self, question: str, default: bool = True) -> bool:
         return False

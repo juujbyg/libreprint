@@ -1,10 +1,10 @@
 [Unit]
-Description=hpeasy: watch the network for new HP printers
+Description=LibrePrint: watch the network for new HP printers
 After=avahi-daemon.service cups.service
 Wants=avahi-daemon.service
 
 [Service]
-ExecStart=/usr/bin/hpeasy watch
+ExecStart=/usr/bin/libreprint watch
 Restart=always
 RestartSec=30
 

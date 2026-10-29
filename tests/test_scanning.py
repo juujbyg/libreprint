@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-from hpeasy import scanning
-from hpeasy.runner import FakeRunner
+from libreprint import scanning
+from libreprint.runner import FakeRunner
 
 SCANIMAGE = (
     "device `airscan:e0:HP OfficeJet Pro 9010' is a eSCL HP OfficeJet Pro 9010 ip=192.168.1.50\n"
@@ -29,8 +29,15 @@ def test_hpaio_no_files():
 def test_enable_hpaio():
     r = FakeRunner()
     scanning.enable_hpaio(r)
-    assert r.files[scanning.DLL_D + "/hpeasy"] == "hpaio\n"
+    assert r.files[scanning.DLL_D + "/libreprint"] == "hpaio\n"
     assert scanning.hpaio_enabled(r) is True
+
+
+def test_disable_escl_backend():
+    r = FakeRunner(files={scanning.DLL_CONF: "net\nescl\nfujitsu\n"})
+    assert scanning.disable_escl_backend(r) is True
+    assert r.files[scanning.DLL_CONF].splitlines()[1].startswith("#escl")
+    assert scanning.disable_escl_backend(r) is False
 
 
 def test_list_scanners():

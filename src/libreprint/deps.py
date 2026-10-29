@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from hpeasy.runner import Result, Runner
+from libreprint.runner import Result, Runner
 
 BINARY_PACKAGES: dict[str, str] = {
     "lpadmin": "cups-client",

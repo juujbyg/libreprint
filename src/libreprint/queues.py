@@ -6,8 +6,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from hpeasy.hplipdb import normalize_model
-from hpeasy.models import Device
+from libreprint.hplipdb import normalize_model
+from libreprint.models import Device
 
 _LPSTAT_V = re.compile(r"^device for (\S+?): (\S.*)$")
 _DISABLED = re.compile(r"^printer (\S+) disabled since")

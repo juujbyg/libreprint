@@ -57,7 +57,7 @@ jobs:
         with:
           name: deb
           path: dist
-      - name: Install hpeasy and CUPS
+      - name: Install libreprint and CUPS
         run: |
           apt-get update
           apt-get install -y --no-install-recommends ./dist/*.deb cups cups-ipp-utils cups-filters
@@ -77,8 +77,8 @@ jobs:
           path: dist
       - name: Add the stable alias used by install.sh
         run: |
-          deb="$(ls dist/hpeasy_*_all.deb | head -n 1)"
-          cp "$deb" dist/hpeasy_all.deb
+          deb="$(ls dist/libreprint_*_all.deb | head -n 1)"
+          cp "$deb" dist/libreprint_all.deb
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}

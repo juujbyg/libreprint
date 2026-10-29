@@ -9,8 +9,8 @@ case "$1" in
         udevadm control --reload-rules >/dev/null 2>&1 || true
         ;;
     purge)
-        rm -rf /var/lib/hpeasy
-        rm -f /var/log/hpeasy-install.log
+        rm -rf /var/lib/libreprint
+        rm -f /var/log/libreprint-install.log
         ;;
     *)
         ;;

@@ -3,12 +3,12 @@ import json
 
 from conftest import fixture
 
-from hpeasy import __version__, doctor
-from hpeasy.hplipdb import MODELS_DAT
-from hpeasy.models import Device
-from hpeasy.plugin import HPLIP_STATE
-from hpeasy.runner import FakeRunner
-from hpeasy.state import STATE_PATH
+from libreprint import __version__, doctor
+from libreprint.hplipdb import MODELS_DAT
+from libreprint.models import Device
+from libreprint.plugin import HPLIP_STATE
+from libreprint.runner import FakeRunner
+from libreprint.state import STATE_PATH
 
 DPKG_STATUS = ("dpkg-query", "-W", "-f=${db:Status-Status}")
 
@@ -140,7 +140,7 @@ def test_hp_plugin_pending_and_mismatch():
     runner.files[STATE_PATH] = json.dumps({"pending_plugin": ["LaserJet P1102"]})
     check = by_id(doctor.run_checks(runner, []), "hp-plugin")
     assert check.status == "fail"
-    assert check.fix == "sudo hpeasy plugin"
+    assert check.fix == "sudo libreprint plugin"
     assert check.fix_argv is None
 
     runner = healthy()

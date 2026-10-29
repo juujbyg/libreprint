@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-from hpeasy import deps
-from hpeasy.runner import FakeRunner, Result
+from libreprint import deps
+from libreprint.runner import FakeRunner, Result
 
 QUERY = ["dpkg-query", "-W", "-f=${db:Status-Status}"]
 

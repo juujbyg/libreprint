@@ -4,8 +4,8 @@ set -e
 case "$1" in
     remove)
         if [ -d /run/systemd/system ]; then
-            systemctl stop hpeasy-netwatch.service || true
-            systemctl disable hpeasy-netwatch.service || true
+            systemctl stop libreprint-netwatch.service || true
+            systemctl disable libreprint-netwatch.service || true
         fi
         ;;
     *)

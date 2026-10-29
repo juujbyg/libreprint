@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 from conftest import fixture
 
-from hpeasy import discovery
-from hpeasy.runner import FakeRunner
+from libreprint import discovery
+from libreprint.runner import FakeRunner
 
 
 def test_parse_lpinfo_filters_hp():
@@ -72,6 +72,25 @@ def test_discover_without_avahi():
     runner = FakeRunner(binaries={"lpinfo"}).on("lpinfo", out=fixture("lpinfo_usb.txt"))
     devices = discovery.discover(runner)
     assert len(devices) == 1
+
+
+def test_discover_network_without_avahi():
+    uri = "ipps://HPFAKE.local:631/ipp/print"
+    runner = (
+        FakeRunner(binaries={"lpinfo", "ippfind", "ipptool", "airscan-discover"})
+        .on("ippfind", out=f"{uri}\n{uri}\nipp://other.local:631/ipp/print\n")
+        .on("ipptool", out="")
+        .on("ipptool", "-T", "10", "-tv", uri, out=fixture("ipptool.txt"))
+        .on(
+            "airscan-discover",
+            out="[devices]\n  HP Fake LaserJet [ABC] = http://10.0.0.7:8080/eSCL/, eSCL\n",
+        )
+    )
+    devices = discovery.discover(runner)
+    assert len(devices) == 1
+    assert devices[0].model == "Fake LaserJet"
+    assert devices[0].ipp_everywhere and devices[0].escl
+    assert devices[0].ip == "10.0.0.7"
 
 
 def test_parse_ipptool():

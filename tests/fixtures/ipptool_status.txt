@@ -1,0 +1,13 @@
+"get-printer-attributes.test":
+    Get-Printer-Attributes:
+        attributes-charset (charset) = utf-8
+        printer-make-and-model (textWithoutLanguage) = HP ENVY 6000 series
+        printer-state (enum) = idle
+        printer-state-reasons (keyword) = none
+        printer-state-message (textWithoutLanguage) = 
+        marker-names (1setOf nameWithoutLanguage) = tri-color cartridge,black cartridge
+        marker-colors (1setOf nameWithoutLanguage) = #00FFFF#FF00FF#FFFF00,#000000
+        marker-low-levels (1setOf integer) = 2,2
+        marker-levels (1setOf integer) = 20,5
+        printer-firmware-string-version (textWithoutLanguage) = VASBYTPP2N001.2628C.00
+    [PASS]

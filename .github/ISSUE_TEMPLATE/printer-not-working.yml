@@ -1,5 +1,5 @@
 name: Printer not working
-description: A printer or scanner does not work after running hpeasy
+description: A printer or scanner does not work after running LibrePrint
 title: "[printer] "
 labels: ["hardware"]
 body:
@@ -33,14 +33,14 @@ body:
   - type: textarea
     id: doctor
     attributes:
-      label: Output of `hpeasy doctor --json`
+      label: Output of `libreprint doctor --json`
       render: json
     validations:
       required: true
   - type: textarea
     id: list
     attributes:
-      label: Output of `hpeasy list --json`
+      label: Output of `libreprint list --json`
       render: json
     validations:
       required: true

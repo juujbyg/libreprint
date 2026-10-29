@@ -9,16 +9,16 @@ import os
 import sys
 from dataclasses import asdict
 
-from hpeasy import __version__, doctor, hplipdb, plugin
-from hpeasy import setup as setup_mod
-from hpeasy.decide import decide
-from hpeasy.discovery import discover
-from hpeasy.models import Device
-from hpeasy.queues import find_existing, parse_lpstat_v
-from hpeasy.runner import Runner
-from hpeasy.setup import Options, Outcome
-from hpeasy.state import load_config
-from hpeasy.ui import ConsoleUI
+from libreprint import __version__, doctor, hplipdb, plugin
+from libreprint import setup as setup_mod
+from libreprint.decide import decide
+from libreprint.discovery import discover
+from libreprint.models import Device
+from libreprint.queues import find_existing, parse_lpstat_v
+from libreprint.runner import Runner
+from libreprint.setup import Options, Outcome
+from libreprint.state import load_config
+from libreprint.ui import ConsoleUI
 
 EXIT_OK, EXIT_ERROR, EXIT_USAGE, EXIT_ROOT, EXIT_NO_DEVICE, EXIT_USER_ACTION = 0, 1, 2, 3, 4, 5
 
@@ -37,9 +37,9 @@ def _symbols() -> dict[str, str]:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="hpeasy", description="Set up any HP printer or MFP with one command."
+        prog="libreprint", description="Set up any HP printer or MFP with one command."
     )
-    parser.add_argument("--version", action="version", version=f"hpeasy {__version__}")
+    parser.add_argument("--version", action="version", version=f"libreprint {__version__}")
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
 
     p = sub.add_parser("setup", help="detect HP devices and create their print queues")
@@ -64,6 +64,7 @@ def _build_parser() -> argparse.ArgumentParser:
     group.add_argument("--all", action="store_true", help="USB and network devices")
 
     sub.add_parser("watch", help="watch the network for new HP printers (systemd service)")
+    sub.add_parser("gui", help="open the graphical app: ink, printing, scanning, diagnostics")
     return parser
 
 
@@ -81,11 +82,11 @@ def _default_euid() -> int:
 def _elevate(argv: list[str]) -> int:
     if sys.stdin.isatty():
         try:
-            os.execvp("sudo", ["sudo", sys.executable, "-m", "hpeasy", *argv])
+            os.execvp("sudo", ["sudo", sys.executable, "-m", "libreprint", *argv])
         except OSError as exc:
-            print(f"hpeasy: could not run sudo: {exc}", file=sys.stderr)
+            print(f"libreprint: could not run sudo: {exc}", file=sys.stderr)
             return EXIT_ROOT
-    print("hpeasy: this command needs root (try: sudo hpeasy ...)", file=sys.stderr)
+    print("libreprint: this command needs root (try: sudo libreprint ...)", file=sys.stderr)
     return EXIT_ROOT
 
 
@@ -98,7 +99,7 @@ def _print_outcome(outcome: Outcome, sym: dict[str, str]) -> None:
     elif status == "exists":
         print(f"{sym['dot']} {name}: already configured as {outcome.queue}")
     elif status == "needs-plugin":
-        print(f"! {name} needs the HP plugin: run sudo hpeasy plugin")
+        print(f"! {name} needs the HP plugin: run sudo libreprint plugin")
     elif status == "skipped":
         print(
             f"{sym['dot']} {name}: skipped" + (f" ({outcome.message})" if outcome.message else "")
@@ -130,7 +131,7 @@ def _cmd_setup(args: argparse.Namespace, runner: Runner) -> int:
     ui = ConsoleUI(assume_yes=args.yes)
     outcomes = setup_mod.run_setup(runner, opts, load_config(runner), ui)
     if not outcomes:
-        print("hpeasy: no HP device found", file=sys.stderr)
+        print("libreprint: no HP device found", file=sys.stderr)
         return EXIT_NO_DEVICE
     return _report(outcomes)
 
@@ -181,7 +182,10 @@ def _cmd_plugin(args: argparse.Namespace, runner: Runner) -> int:
         file=sys.stderr,
     )
     if not plugin.install_plugin(runner, interactive=not args.yes):
-        print("hpeasy: the HP plugin is not installed (see the messages above)", file=sys.stderr)
+        print(
+            "libreprint: the HP plugin is not installed (see the messages above)",
+            file=sys.stderr,
+        )
         return EXIT_ERROR
     print("HP plugin installed.")
     pending = setup_mod.clear_pending_plugin(runner)
@@ -207,6 +211,16 @@ def _cmd_watch(args: argparse.Namespace, runner: Runner) -> int:
     return EXIT_OK
 
 
+def _cmd_gui(args: argparse.Namespace, runner: Runner) -> int:
+    try:
+        from libreprint import gui
+    except (ImportError, ValueError) as exc:
+        print(f"libreprint: the graphical app needs GTK 4 and libadwaita ({exc})", file=sys.stderr)
+        print("  sudo apt install python3-gi gir1.2-adw-1", file=sys.stderr)
+        return EXIT_ERROR
+    return gui.main(runner)
+
+
 _COMMANDS = {
     "setup": _cmd_setup,
     "list": _cmd_list,
@@ -214,6 +228,7 @@ _COMMANDS = {
     "plugin": _cmd_plugin,
     "auto": _cmd_auto,
     "watch": _cmd_watch,
+    "gui": _cmd_gui,
 }
 
 
