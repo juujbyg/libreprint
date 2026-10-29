@@ -1,10 +1,11 @@
 #!/bin/sh
-# Install the latest LibrePrint release on Debian/Ubuntu and run the initial setup.
-# Usage: sh install.sh
+# Install LibrePrint on Debian/Ubuntu from its APT repository and run the initial setup.
+# Usage: curl -fsSL https://YOUR-USERNAME.github.io/libreprint/install.sh | sh
 set -eu
 
-repo="${LIBREPRINT_REPO:-libreprint/libreprint}"
-url="https://github.com/${repo}/releases/latest/download/libreprint_all.deb"
+repo_url="${LIBREPRINT_APT_URL:-https://YOUR-USERNAME.github.io/libreprint}"
+keyring="/usr/share/keyrings/libreprint.gpg"
+source_list="/etc/apt/sources.list.d/libreprint.list"
 
 if [ ! -f /etc/debian_version ]; then
     echo "libreprint: this installer supports Debian and Ubuntu only" >&2
@@ -30,14 +31,19 @@ else
 fi
 
 tmp="$(mktemp -d)"
-chmod 755 "$tmp"
 trap 'rm -rf "$tmp"' EXIT INT TERM
 
-echo "Downloading $url"
-fetch "$url" "$tmp/libreprint_all.deb"
+echo "Adding the LibrePrint APT repository ($repo_url)"
+fetch "$repo_url/libreprint.gpg" "$tmp/libreprint.gpg"
+$SUDO install -m 644 "$tmp/libreprint.gpg" "$keyring"
+echo "deb [signed-by=$keyring] $repo_url stable main" >"$tmp/libreprint.list"
+$SUDO install -m 644 "$tmp/libreprint.list" "$source_list"
 
 echo "Installing LibrePrint"
-$SUDO apt-get install -y "$tmp/libreprint_all.deb"
+$SUDO apt-get update
+$SUDO apt-get install -y libreprint
 
-echo "Running libreprint setup"
+echo "Setting up your printer"
 $SUDO libreprint setup
+
+echo "Done. Open LibrePrint from your app menu, or run: libreprint gui"

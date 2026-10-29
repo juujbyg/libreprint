@@ -28,8 +28,10 @@ ruff check src tests
 ## Layout
 
 `src/libreprint/decide.py` is a pure function (device in, plan out); `setup.py` executes plans;
-`doctor.py` holds the diagnostics; `cli.py` is the argparse entry point. System files are in
-`data/`, packaging in `packaging/`.
+`doctor.py` holds the diagnostics; `cli.py` is the argparse entry point. The app (`libreprint gui`)
+is `gui.py` (GTK 4 + libadwaita, imported only by that command); its logic lives in `status.py`,
+which is tested without GTK. System files are in `data/`, packaging in `packaging/`, README
+screenshots in `docs/screenshots/` (made from demo data, never a real printer).
 
 ## Packaging and integration tests
 

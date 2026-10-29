@@ -14,7 +14,7 @@ if [ -z "$version" ]; then
     echo "build-deb.sh: cannot determine the version" >&2
     exit 1
 fi
-owner="${GITHUB_REPOSITORY:-libreprint/libreprint}"
+owner="${GITHUB_REPOSITORY:-YOUR-USERNAME/libreprint}"
 owner="${owner%%/*}"
 
 stage="build/root"

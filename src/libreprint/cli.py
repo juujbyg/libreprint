@@ -218,6 +218,14 @@ def _cmd_gui(args: argparse.Namespace, runner: Runner) -> int:
         print(f"libreprint: the graphical app needs GTK 4 and libadwaita ({exc})", file=sys.stderr)
         print("  sudo apt install python3-gi gir1.2-adw-1", file=sys.stderr)
         return EXIT_ERROR
+    adw = (gui.Adw.get_major_version(), gui.Adw.get_minor_version())
+    if adw < gui.MIN_ADW:
+        print(
+            f"libreprint: the graphical app needs libadwaita {'.'.join(map(str, gui.MIN_ADW))} "
+            f"or newer (found {adw[0]}.{adw[1]}); use the command line instead",
+            file=sys.stderr,
+        )
+        return EXIT_ERROR
     return gui.main(runner)
 
 

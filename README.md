@@ -1,43 +1,93 @@
+<div align="center">
+
+<img src="docs/screenshots/status.png" alt="LibrePrint showing an HP printer, its print queue and ink levels" width="720">
+
 # LibrePrint
 
-Set up any HP printer or multifunction device on Debian and Ubuntu with one command.
+**Use your HP printer on Linux — print, scan and check ink without HP Smart.**
 
-libreprint finds your HP printer (USB or network), picks the right way to drive it, installs what
-is missing, creates the CUPS print queue, configures scanning, and diagnoses the usual
-failures with `libreprint doctor`.
+[![CI](https://github.com/YOUR-USERNAME/libreprint/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-USERNAME/libreprint/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/YOUR-USERNAME/libreprint)](https://github.com/YOUR-USERNAME/libreprint/releases/latest)
+[![License: GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-blue)](LICENSE)
+
+</div>
+
+HP's own apps for Linux are hard to live with. LibrePrint finds your HP printer (Wi-Fi, network or
+USB), sets it up with the right driver, and gives you a simple app to print, scan, watch ink levels
+and fix problems — on Ubuntu and Debian, with one command.
 
 > **LibrePrint is not affiliated with, endorsed by, or sponsored by HP Inc.** "HP" is a trademark
 > of HP Inc., used here only to describe the devices the tool works with.
 
-## What it is (and is not)
+## Features
 
-libreprint is **not a new driver**. Device support already exists in the Linux printing stack, and
-libreprint is the glue that chooses the right piece and wires it up. It builds on:
+- **One-command setup.** Detects HP printers on the network or USB and creates the print queue,
+  preferring driverless IPP Everywhere and falling back to HPLIP only when needed.
+- **Ink levels at a glance**, with a warning when a cartridge is running low.
+- **Print queue you can see and control** — a banner on every screen while something prints, and
+  one click to cancel a job or all of them.
+- **Printing options** — copies, two-sided, colour or greyscale, quality, page ranges, and
+  last-page-first output so the stack comes out in order.
+- **Multi-page scanning** to a single PDF, or to PNG/JPEG, with a preview of every page.
+- **Diagnostics** that check CUPS, network discovery, firewall and scanner, and tell you the
+  command that fixes each problem.
+- **Automatic mode** — plug in a USB printer or join a network with one, and it is set up for you.
+
+## Screenshots
+
+| Print | Scan | Diagnostics |
+|:---:|:---:|:---:|
+| ![Print options](docs/screenshots/print.png) | ![Multi-page scanning](docs/screenshots/scan.png) | ![Diagnostics](docs/screenshots/doctor.png) |
+
+## Install
+
+**Option 1 — one command (recommended).** Adds the LibrePrint APT repository, installs the app and
+sets up your printer. You get updates with the rest of your system (`sudo apt upgrade`):
+
+```sh
+curl -fsSL https://YOUR-USERNAME.github.io/libreprint/install.sh | sh
+```
+
+**Option 2 — add the APT repository by hand:**
+
+```sh
+curl -fsSL https://YOUR-USERNAME.github.io/libreprint/libreprint.gpg \
+  | sudo tee /usr/share/keyrings/libreprint.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/libreprint.gpg] https://YOUR-USERNAME.github.io/libreprint stable main" \
+  | sudo tee /etc/apt/sources.list.d/libreprint.list
+sudo apt update && sudo apt install libreprint
+sudo libreprint setup
+```
+
+**Option 3 — just the `.deb`.** Download `libreprint_all.deb` from the
+[latest release](https://github.com/YOUR-USERNAME/libreprint/releases/latest) and run
+`sudo apt install ./libreprint_all.deb` (no automatic updates).
+
+Then open **LibrePrint** from your app menu, or run `libreprint gui`.
+
+| | Command line | App |
+|---|---|---|
+| Ubuntu 26.04, 24.04 | ✅ | ✅ |
+| Ubuntu 22.04 | ✅ | — (needs libadwaita 1.5) |
+| Debian 13 | ✅ | ✅ |
+| Debian 12 | ✅ | — (needs libadwaita 1.5) |
+
+amd64 and arm64. Python 3.10 or newer, standard library only: nothing is installed from PyPI.
+
+## How it works
+
+LibrePrint is **not a new driver**. Support for HP devices already exists in the Linux printing
+stack; LibrePrint is the glue that picks the right piece and wires it up. It builds on:
 
 - [CUPS](https://openprinting.github.io/cups/) and IPP Everywhere (driverless printing),
 - [ipp-usb](https://github.com/OpenPrinting/ipp-usb) (driverless access to USB printers),
 - [HPLIP](https://developers.hp.com/hp-linux-imaging-and-printing) (drivers for older HP models),
 - [SANE](http://www.sane-project.org/) (`sane-airscan` for eSCL, `hpaio` for HPLIP scanners).
 
-## Install
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/libreprint/libreprint/main/install.sh | sh
-```
-
-This downloads the latest `.deb` from GitHub Releases, installs it with `apt`, and runs
-`sudo libreprint setup`. You can also install a release `.deb` by hand:
-
-```sh
-sudo apt install ./libreprint_all.deb
-```
-
-Supported: Ubuntu 22.04 / 24.04 / 26.04 and Debian 12 / 13, on amd64 and arm64. Python 3.10 or
-newer (standard library only; nothing is installed from PyPI).
-
-## Usage
+## Command line
 
 ```
+libreprint gui
 libreprint setup [--uri URI] [--yes] [--no-test-page] [--force]
 libreprint list [--json]
 libreprint doctor [--json] [--fix]
@@ -46,6 +96,7 @@ libreprint plugin [--yes]
 
 | Command | What it does |
 |---|---|
+| `libreprint gui` | Opens the LibrePrint app (also in your app menu). |
 | `libreprint setup` | Detects HP devices and creates their print queues (and scanner setup). `--yes` answers every question automatically. `--uri` configures a specific device URI instead of discovering. `--no-test-page` skips the test page. `--force` reconfigures a queue that already exists. |
 | `libreprint list` | Shows detected devices as `MODEL  CONNECTION  METHOD  QUEUE`. `--json` gives machine-readable output. |
 | `libreprint doctor` | Runs diagnostics and prints `[ OK ]` / `[FAIL]` / `[WARN]` / `[SKIP]` for each, with a suggested fix command. `--fix` applies the available fixes. `--json` produces output to attach to bug reports. |
@@ -57,7 +108,7 @@ re-runs itself with `sudo`; without a terminal it exits with code 3.
 Exit codes: `0` ok, `1` error, `2` usage, `3` needs root, `4` no HP device found, `5` user action
 required (plugin license).
 
-libreprint never modifies or deletes a print queue it did not create unless you pass `--force`.
+LibrePrint never modifies or deletes a print queue it did not create unless you pass `--force`.
 Running `setup` twice changes nothing.
 
 ## How it chooses a driver
@@ -132,6 +183,7 @@ add a line to [docs/HARDWARE.md](docs/HARDWARE.md).
 
 ```sh
 sudo apt remove libreprint
+sudo rm -f /etc/apt/sources.list.d/libreprint.list /usr/share/keyrings/libreprint.gpg
 ```
 
 Print queues created by LibrePrint are **kept**, so printing keeps working. Remove them with
@@ -140,4 +192,17 @@ Print queues created by LibrePrint are **kept**, so printing keeps working. Remo
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Licensed under GPL-2.0-or-later; see [LICENSE](LICENSE).
+Run it straight from a clone, no install needed:
+
+```sh
+git clone https://github.com/YOUR-USERNAME/libreprint.git
+cd libreprint
+PYTHONPATH=src python3 -m libreprint gui     # or: list, doctor, ...
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for tests, packaging and the project's ground rules, and
+[docs/RELEASING.md](docs/RELEASING.md) for publishing a new version.
+
+## License
+
+GPL-2.0-or-later; see [LICENSE](LICENSE).

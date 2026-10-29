@@ -50,7 +50,8 @@ def test_control_file():
     assert "Depends: python3 (>= 3.10), cups, cups-client\n" in control
     assert (
         "Recommends: ipp-usb, avahi-daemon, avahi-utils, libnss-mdns, printer-driver-hpcups, "
-        "hplip, sane-utils, sane-airscan, libsane-hpaio, cups-ipp-utils\n"
+        "hplip, sane-utils, sane-airscan, libsane-hpaio, cups-ipp-utils, "
+        "python3-gi, gir1.2-adw-1, python3-cairo\n"
     ) in control
     assert "not affiliated with HP Inc." in control
 
@@ -84,6 +85,7 @@ def test_postrm_purge_removes_state_only():
     "path",
     [
         "packaging/build-deb.sh",
+        "packaging/build-apt-repo.sh",
         "tests/integration/run.sh",
         "install.sh",
         *[f"packaging/DEBIAN/{name}" for name in SCRIPTS],

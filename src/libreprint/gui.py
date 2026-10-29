@@ -17,14 +17,15 @@ gi.require_version("Adw", "1")
 gi.require_version("GdkPixbuf", "2.0")
 gi.require_version("Gsk", "4.0")
 gi.require_version("Graphene", "1.0")
-from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, Graphene, Gsk, Gtk  # noqa: E402
+from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, Graphene, Gsk, Gtk
 
-from libreprint import __version__, doctor, scanning, status  # noqa: E402
-from libreprint.models import Check  # noqa: E402
-from libreprint.queues import Queue  # noqa: E402
-from libreprint.runner import Runner  # noqa: E402
-from libreprint.setup import TEST_PAGE  # noqa: E402
+from libreprint import __version__, doctor, scanning, status
+from libreprint.models import Check
+from libreprint.queues import Queue
+from libreprint.runner import Runner
+from libreprint.setup import TEST_PAGE
 
+MIN_ADW = (1, 5)  # AboutDialog, ToolbarView, SpinRow, SwitchRow
 APP_ID = "io.github.libreprint.LibrePrint"
 REFRESH_SECONDS = 10
 BUSY_REFRESH_SECONDS = 3  # while jobs are queued, so progress and cancels show up quickly
@@ -89,6 +90,13 @@ def _boxed_list(group: Adw.PreferencesGroup) -> Gtk.ListBox:
     rows = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, css_classes=["boxed-list"])
     group.add(rows)
     return rows
+
+
+def _spinner(size: int = 16) -> Gtk.Widget:
+    """Adw.Spinner needs libadwaita 1.6; fall back to Gtk.Spinner (Ubuntu 24.04 has 1.5)."""
+    if hasattr(Adw, "Spinner"):
+        return Adw.Spinner(width_request=size, height_request=size)
+    return Gtk.Spinner(spinning=True, width_request=size, height_request=size)
 
 
 def _pill_button(label: str, icon: str, suggested: bool = False) -> Gtk.Button:
@@ -196,12 +204,9 @@ class Window(Adw.ApplicationWindow):
 
     def _tick(self) -> bool:
         self._since_refresh += 1
-        if self._jobs and self._since_refresh >= BUSY_REFRESH_SECONDS:
-            self.refresh()
-        elif (
-            self.stack.get_visible_child_name() == "status"
-            and self._since_refresh >= REFRESH_SECONDS
-        ):
+        busy_due = bool(self._jobs) and self._since_refresh >= BUSY_REFRESH_SECONDS
+        on_status = self.stack.get_visible_child_name() == "status"
+        if busy_due or (on_status and self._since_refresh >= REFRESH_SECONDS):
             self.refresh()
         return True
 
@@ -247,7 +252,8 @@ class Window(Adw.ApplicationWindow):
             ),
             "empty",
         )
-        spinner = Adw.Spinner(width_request=48, height_request=48, halign=Gtk.Align.CENTER)
+        spinner = _spinner(48)
+        spinner.set_halign(Gtk.Align.CENTER)
         self.status_stack.add_named(spinner, "loading")
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
@@ -412,7 +418,7 @@ class Window(Adw.ApplicationWindow):
                 subtitle=f"{job.user} · {job.submitted}",
             )
             if active:
-                row.add_prefix(Adw.Spinner())
+                row.add_prefix(_spinner())
             else:
                 row.add_prefix(Gtk.Image(icon_name="document-print-symbolic"))
             cancel = Gtk.Button(
@@ -620,7 +626,7 @@ class Window(Adw.ApplicationWindow):
             "empty",
         )
         busy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16, valign=Gtk.Align.CENTER)
-        busy.append(Adw.Spinner(width_request=48, height_request=48))
+        busy.append(_spinner(48))
         busy.append(Gtk.Label(label="Scanning…", css_classes=["title-3"]))
         self.scan_stack.add_named(busy, "busy")
 
@@ -628,6 +634,7 @@ class Window(Adw.ApplicationWindow):
         pages.set_margin_top(16)
         pages.set_margin_bottom(12)
         self.carousel = Adw.Carousel(vexpand=True, hexpand=True, spacing=24)
+        self.carousel.set_overflow(Gtk.Overflow.HIDDEN)
         pages.append(self.carousel)
         pages.append(Adw.CarouselIndicatorDots(carousel=self.carousel))
         self.page_label = Gtk.Label(css_classes=["dim-label", "caption"])
@@ -684,8 +691,11 @@ class Window(Adw.ApplicationWindow):
         for path, _dpi in self.pages:
             picture = Gtk.Picture.new_for_filename(path)
             picture.set_content_fit(Gtk.ContentFit.CONTAIN)
-            picture.add_css_class("card")
-            self.carousel.append(picture)
+            picture.set_hexpand(True)
+            # a full-width page keeps the neighbouring scan out of view
+            page = Gtk.Box(hexpand=True, vexpand=True)
+            page.append(picture)
+            self.carousel.append(page)
         has_pages = bool(self.pages)
         self.scan_stack.set_visible_child_name("pages" if has_pages else "empty")
         self.save_button.set_sensitive(has_pages)
@@ -775,10 +785,8 @@ class Window(Adw.ApplicationWindow):
         self._doctor_ran = True
         self.doctor_button.set_sensitive(False)
         self.checks_list.remove_all()
-        row = Adw.ActionRow(
-            title="Running checks…", subtitle="Looking for printers on the network"
-        )
-        row.add_prefix(Adw.Spinner())
+        row = Adw.ActionRow(title="Running checks…", subtitle="Looking for printers on the network")
+        row.add_prefix(_spinner())
         self.checks_list.append(row)
 
         def done(result: Any) -> None:

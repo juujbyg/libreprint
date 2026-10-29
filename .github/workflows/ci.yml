@@ -83,3 +83,39 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/*.deb --repo "$GITHUB_REPOSITORY" --generate-notes
+
+  apt-repo:
+    # Publishes the signed APT repository (and install.sh) on GitHub Pages; see docs/RELEASING.md.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: integration
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: deb
+          path: dist
+      - name: Import the signing key
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APT_GPG_PRIVATE_KEY" ]; then
+            echo "::error::Add the APT_GPG_PRIVATE_KEY secret first (see docs/RELEASING.md)"
+            exit 1
+          fi
+          printf '%s\n' "$APT_GPG_PRIVATE_KEY" | gpg --batch --import
+      - name: Build the repository
+        run: |
+          bash packaging/build-apt-repo.sh public dist/libreprint_*_all.deb
+          install -m 644 install.sh public/install.sh
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deploy
+        uses: actions/deploy-pages@v4
