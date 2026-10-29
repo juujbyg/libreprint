@@ -381,7 +381,7 @@ def test_watch_triggers_once_per_device():
     ipv4 = next(ln for ln in lines if ln.startswith("=;eth0;IPv4") and "_ipp._tcp" in ln)
     uscan = next(ln for ln in lines if "_uscan._tcp" in ln)
     runner = make_runner()
-    runner.on("avahi-browse", "-a", "-r", "-p", "-t", out=fixture("avahi.txt"))
+    runner.on("avahi-browse", "-a", "-r", "-p", "-k", "-t", out=fixture("avahi.txt"))
     runner.stream_lines[("avahi-browse", "-a", "-r", "-p", "-k")] = [
         "+;eth0;IPv4;ignored;_ipp._tcp;local",
         ipv4,

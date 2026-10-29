@@ -132,7 +132,7 @@ def parse_avahi(out: str) -> list[Device]:
         parts = line.split(";", 9)
         if len(parts) < 10:
             continue
-        _, iface, _proto, raw_name, svc, _domain, _host, address, port, raw_txt = parts
+        _, iface, _proto, raw_name, svc, _domain, hostname, address, port, raw_txt = parts
         txt = _parse_txt(raw_txt)
         if not _avahi_is_hp(txt):
             continue
@@ -155,6 +155,9 @@ def parse_avahi(out: str) -> list[Device]:
                 host = f"[{host}]"
             rp = txt.get("rp", "").lstrip("/") or "ipp/print"
             dev.uris = [f"{scheme}://{host}:{port}/{rp}"]
+            if not is_lo and hostname.endswith(".local"):
+                # queues may have been created with the mDNS name instead of the address
+                dev.uris.append(f"{scheme}://{hostname}:{port}/{rp}")
             pdl = txt.get("pdl", "").lower()
             dev.ipp_everywhere = any(fmt in pdl for fmt in _RASTER_FORMATS)
         elif svc == "_uscan._tcp":
@@ -296,7 +299,8 @@ def _discover_without_avahi(runner: Runner) -> list[Device]:
 def discover(runner: Runner) -> list[Device]:
     found: list[Device] = []
     found.extend(parse_lpinfo(runner.run(["lpinfo", "-l", "-v"], timeout=60).out))
-    avahi = runner.run(["avahi-browse", "-a", "-r", "-p", "-t"], timeout=15)
+    # -k keeps raw service types (_ipp._tcp); without it avahi prints "Internet Printer"
+    avahi = runner.run(["avahi-browse", "-a", "-r", "-p", "-k", "-t"], timeout=15)
     if avahi.code == 127:
         found.extend(_discover_without_avahi(runner))
     else:

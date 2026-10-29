@@ -28,6 +28,7 @@ def test_avahi_uris():
     all_uris = [u for d in devices for u in d.uris]
     assert "ipp://192.168.1.50:631/ipp/print" in all_uris
     assert "ipp://[fe80::5265:f3ff:feab:c123]:631/ipp/print" in all_uris
+    assert "ipp://HPABC123.local:631/ipp/print" in all_uris
     lo = [d for d in devices if "ipp://localhost:60000/ipp/print" in d.uris]
     assert len(lo) == 1
     assert lo[0].connection == "usb"
@@ -72,6 +73,26 @@ def test_discover_without_avahi():
     runner = FakeRunner(binaries={"lpinfo"}).on("lpinfo", out=fixture("lpinfo_usb.txt"))
     devices = discovery.discover(runner)
     assert len(devices) == 1
+
+
+def test_discover_asks_avahi_for_raw_service_types():
+    runner = FakeRunner(binaries={"lpinfo", "avahi-browse"})
+    runner.on("avahi-browse", "-a", "-r", "-p", "-k", "-t", out=fixture("avahi.txt"))
+    devices = discovery.discover(runner)
+    assert any(d.ipp_everywhere for d in devices)
+    assert ["avahi-browse", "-a", "-r", "-p", "-k", "-t"] in runner.calls
+
+
+def test_existing_queue_by_mdns_name_is_recognised():
+    from libreprint.queues import Queue, find_existing
+
+    (device,) = [
+        d
+        for d in discovery.merge(discovery.parse_avahi(fixture("avahi.txt")))
+        if d.connection == "network" and d.ipp_everywhere
+    ]
+    queue = Queue("HP_OfficeJet", "ipp://HPABC123.local:631/ipp/print")
+    assert find_existing(device, [queue]) == queue
 
 
 def test_discover_network_without_avahi():
