@@ -177,7 +177,7 @@ def _setup_device(
     if existing is not None:
         taken.discard(existing.name)  # --force: reconfigure the existing queue in place
 
-    # 2. HPLIP database needed unless the device can be set up driverless right now.
+    # 2. HP only: HPLIP database needed unless the device can be set up driverless right now.
     if device.is_hp and not _driverless_ready(device) and db is None:
         error = _ensure_packages(
             runner, ["hplip", "printer-driver-hpcups"], config, ui, opts.assume_yes

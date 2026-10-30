@@ -214,7 +214,14 @@ def test_setup_installs_missing_packages_non_interactive():
     runner = make_runner()
     runner.on(*DPKG_STATUS, "sane-airscan", code=1)
     outcome, _ = setup(runner, device)
-    assert ["apt-get", "install", "-y", "sane-airscan"] in runner.calls
+    assert [
+        "apt-get",
+        "install",
+        "-y",
+        "-o",
+        "DPkg::Lock::Timeout=300",
+        "sane-airscan",
+    ] in runner.calls
     assert outcome.status == "created"
 
     runner = make_runner()
@@ -325,7 +332,7 @@ def test_setup_usb_everywhere_without_ipp_uri_installs_hplip():
     device = m404()
     device.ipp_everywhere = True  # IPP-over-USB capable, but no ipp-usb endpoint known
     setup(runner, device)
-    assert ["apt-get", "install", "-y", "hplip"] in runner.calls
+    assert ["apt-get", "install", "-y", "-o", "DPkg::Lock::Timeout=300", "hplip"] in runner.calls
 
 
 def test_run_auto_waits_for_ipp_usb_endpoint():

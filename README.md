@@ -32,8 +32,8 @@ through HPLIP.
 - **Ink levels at a glance**, with a warning when a cartridge is running low.
 - **Print queue you can see and control** — a banner on every screen while something prints, and
   one click to cancel a job or all of them.
-- **Printing options** — copies, two-sided, colour or greyscale, quality, page ranges, and
-  last-page-first output so the stack comes out in order.
+- **Printing options** — copies, two-sided, colour or greyscale, quality and page ranges. Page
+  order follows the printer's output tray, so the stack comes out in reading order.
 - **Multi-page scanning** to a single PDF, or to PNG/JPEG, with a preview of every page.
 - **Diagnostics** that check CUPS, network discovery, firewall and scanner, and tell you the
   command that fixes each problem.
@@ -135,8 +135,15 @@ For each printer found, LibrePrint picks the first method that applies:
 Scanning is configured separately: devices of any make that advertise eSCL (`_uscan._tcp`,
 the "AirScan" protocol) use `sane-airscan`; otherwise HP models with scan support use `libsane-hpaio`.
 
-Missing packages (for example `hplip`, `printer-driver-hpcups`, `sane-airscan`) are installed
-with `apt-get` unless you set `install_packages = false`.
+Missing packages (for example `sane-airscan`) are installed with `apt-get` unless you set
+`install_packages = false`. HPLIP is not part of the normal install: `hplip` and
+`printer-driver-hpcups` are only installed when an HP model needs them.
+
+## Page order
+
+The app reads the printer's output tray over IPP. If pages land face up, it prints the last page
+first so the stack ends up in reading order. If they land face down, it prints normally, because
+that stack is already in order. Printers that do not report their tray get last page first.
 
 ## Automatic mode
 

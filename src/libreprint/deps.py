@@ -19,6 +19,7 @@ BINARY_PACKAGES: dict[str, str] = {
 }
 
 _INSTALL_TIMEOUT = 900
+_LOCK_WAIT = 300
 _NOT_FOUND_MARKERS = ("Unable to locate package", "has no installation candidate")
 
 
@@ -34,7 +35,8 @@ def missing_packages(runner: Runner, packages: list[str]) -> list[str]:
 def install(runner: Runner, packages: list[str]) -> Result:
     if not packages:
         return Result(0)
-    argv = ["apt-get", "install", "-y", *packages]
+    # the first run starts from postinst, while dpkg still holds its lock
+    argv = ["apt-get", "install", "-y", "-o", f"DPkg::Lock::Timeout={_LOCK_WAIT}", *packages]
     res = runner.run(argv, timeout=_INSTALL_TIMEOUT)
     if not res.ok and any(marker in res.err for marker in _NOT_FOUND_MARKERS):
         runner.run(["apt-get", "update"], timeout=_INSTALL_TIMEOUT)

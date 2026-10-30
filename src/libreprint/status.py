@@ -40,6 +40,7 @@ class PrinterStatus:
     message: str
     supplies: tuple[Supply, ...]
     firmware: str
+    face_down: bool = False  # pages land face down, so they already stack in reading order
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,12 @@ def _int(value: str, default: int = -1) -> int:
         return int(value)
     except ValueError:
         return default
+
+
+def _is_face_down(attrs: dict[str, str]) -> bool:
+    if "face-down" in attrs.get("output-bin-default", "").lower():
+        return True
+    return "pagedelivery=facedown" in attrs.get("printer-output-tray", "").lower()
 
 
 def parse_status(out: str) -> PrinterStatus | None:
@@ -87,6 +94,7 @@ def parse_status(out: str) -> PrinterStatus | None:
         message=attrs.get("printer-state-message", ""),
         supplies=supplies,
         firmware=attrs.get("printer-firmware-string-version", ""),
+        face_down=_is_face_down(attrs),
     )
 
 

@@ -22,7 +22,7 @@ def test_not_installed_status_is_missing():
 
 
 def test_install_retries_after_update():
-    install = ["apt-get", "install", "-y", "sane-airscan"]
+    install = ["apt-get", "install", "-y", "-o", "DPkg::Lock::Timeout=300", "sane-airscan"]
     runner = FakeRunner().on_seq(
         *install,
         results=[Result(100, "", "E: Unable to locate package sane-airscan"), Result(0)],
@@ -36,7 +36,7 @@ def test_install_does_not_retry_other_errors():
     runner = FakeRunner().on("apt-get", "install", code=100, err="E: dpkg was interrupted")
     res = deps.install(runner, ["x"])
     assert res.code == 100
-    assert runner.calls == [["apt-get", "install", "-y", "x"]]
+    assert runner.calls == [["apt-get", "install", "-y", "-o", "DPkg::Lock::Timeout=300", "x"]]
 
 
 def test_install_empty_noop():

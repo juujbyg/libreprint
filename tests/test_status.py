@@ -61,8 +61,32 @@ def test_print_argv():
     ]  # fmt: skip
 
 
-def test_print_argv_in_order():
+def test_print_argv_order():
+    assert "outputorder=reverse" in status.print_argv("Q", "a.pdf")
     assert "outputorder=reverse" not in status.print_argv("Q", "a.pdf", reverse=False)
+
+
+def ipp_out(*lines):
+    return "\n".join(("    printer-make-and-model (text) = Acme 1", *lines)) + "\n"
+
+
+def test_face_up_and_unknown_trays_print_last_page_first():
+    face_up = ipp_out(
+        "    output-bin-default (keyword) = face-up",
+        "    printer-output-tray (octetString) = stackingorder=unknown;pagedelivery=faceUp;name=T1",
+    )
+    assert status.parse_status(face_up).face_down is False
+    assert status.parse_status(ipp_out()).face_down is False
+
+
+def test_face_down_trays_are_detected():
+    by_bin = ipp_out("    output-bin-default (keyword) = face-down")
+    by_tray = ipp_out(
+        "    output-bin-default (keyword) = top",
+        "    printer-output-tray (octetString) = pagedelivery=faceDown;name=T1",
+    )
+    assert status.parse_status(by_bin).face_down is True
+    assert status.parse_status(by_tray).face_down is True
 
 
 def test_print_argv_rejects_bad_input():

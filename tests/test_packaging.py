@@ -50,10 +50,10 @@ def test_control_file():
     assert "Architecture: all\n" in control
     assert "Depends: python3 (>= 3.10), cups, cups-client\n" in control
     assert (
-        "Recommends: ipp-usb, avahi-daemon, avahi-utils, libnss-mdns, printer-driver-hpcups, "
-        "hplip, sane-utils, sane-airscan, libsane-hpaio, cups-ipp-utils, "
-        "python3-gi, gir1.2-adw-1, python3-cairo\n"
+        "Recommends: ipp-usb, avahi-daemon, avahi-utils, libnss-mdns, sane-utils, sane-airscan, "
+        "cups-ipp-utils, python3-gi, gir1.2-adw-1, python3-cairo\n"
     ) in control
+    assert "Suggests: hplip, printer-driver-hpcups, libsane-hpaio\n" in control
     assert "not affiliated with any printer manufacturer" in control
 
 

@@ -150,6 +150,7 @@ class Window(Adw.ApplicationWindow):
         self.runner = runner
         self.queues: list[Queue] = []
         self.queue: Queue | None = None
+        self.face_down = False  # last known output tray of the selected printer
         self.print_path: str | None = None
         self.scanners: list[str] = []
         self.pages: list[tuple[str, int]] = []  # (png path, dpi)
@@ -238,6 +239,7 @@ class Window(Adw.ApplicationWindow):
         index = self.queue_menu.get_selected()
         if 0 <= index < len(self.queues):
             self.queue = self.queues[index]
+            self.face_down = False
             self.refresh()
 
     # --- status page -------------------------------------------------------------
@@ -350,6 +352,7 @@ class Window(Adw.ApplicationWindow):
     def _show_status(
         self, queue: Queue, info: status.PrinterStatus | None, jobs: list[status.Job], lpstat_p: str
     ) -> None:
+        self.face_down = info.face_down if info else False
         state = info.state if info else "unknown"
         if info is None and " is idle" in lpstat_p:
             state = "idle"
@@ -489,16 +492,12 @@ class Window(Adw.ApplicationWindow):
             title="Quality", model=Gtk.StringList.new(["Draft", "Normal", "Best"]), selected=1
         )
         self.pages_row = Adw.EntryRow(title="Pages (e.g. 1-3,5 — empty for all)")
-        self.reverse_row = Adw.SwitchRow(
-            title="Last page first", subtitle="The printed stack comes out in order", active=True
-        )
         rows = (
             self.copies_row,
             self.sides_row,
             self.color_row,
             self.quality_row,
             self.pages_row,
-            self.reverse_row,
         )
         for row in rows:
             opts.add(row)
@@ -551,7 +550,6 @@ class Window(Adw.ApplicationWindow):
             "color": self.color_row.get_active(),
             "quality": ("draft", "normal", "best")[self.quality_row.get_selected()],
             "pages": self.pages_row.get_text(),
-            "reverse": self.reverse_row.get_active(),
         }
         self._submit_print(self.print_path, options)
 
@@ -560,7 +558,7 @@ class Window(Adw.ApplicationWindow):
             self.toast("No printer configured")
             return
         try:
-            argv = status.print_argv(self.queue.name, path, **options)
+            argv = status.print_argv(self.queue.name, path, reverse=not self.face_down, **options)
         except ValueError as exc:
             self.toast(str(exc).capitalize())
             return
