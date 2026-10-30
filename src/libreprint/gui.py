@@ -85,6 +85,19 @@ def _background(work: Callable[[], Any], done: Callable[[Any], None]) -> None:
     threading.Thread(target=target, daemon=True).start()
 
 
+def _local_path(file: Gio.File) -> str | None:
+    """Path of ``file``, following the links GNOME Files uses in its Recent view."""
+    path = file.get_path()
+    if path:
+        return path
+    try:
+        info = file.query_info("standard::target-uri", Gio.FileQueryInfoFlags.NONE, None)
+    except GLib.Error:
+        return None
+    target = info.get_attribute_string("standard::target-uri")
+    return Gio.File.new_for_uri(target).get_path() if target else None
+
+
 def _boxed_list(group: Adw.PreferencesGroup) -> Gtk.ListBox:
     """A boxed list inside ``group`` whose rows can be replaced with ``remove_all()``."""
     rows = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, css_classes=["boxed-list"])
@@ -520,7 +533,7 @@ class Window(Adw.ApplicationWindow):
         page.add(go)
 
         drop = Gtk.DropTarget.new(Gio.File, Gdk.DragAction.COPY)
-        drop.connect("drop", lambda _t, value, _x, _y: self._set_print_file(value.get_path()))
+        drop.connect("drop", lambda _t, value, _x, _y: self._set_print_file(_local_path(value)))
         drop.connect("enter", lambda *_: page.add_css_class("drop-hover") or Gdk.DragAction.COPY)
         drop.connect("leave", lambda *_: page.remove_css_class("drop-hover"))
         page.add_controller(drop)
@@ -535,7 +548,7 @@ class Window(Adw.ApplicationWindow):
                 file = dlg.open_finish(result)
             except GLib.Error:
                 return  # cancelled
-            self._set_print_file(file.get_path())
+            self._set_print_file(_local_path(file))
 
         dialog.open(self, None, done)
 
