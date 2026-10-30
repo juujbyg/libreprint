@@ -8,6 +8,7 @@ import posixpath
 import shutil
 import subprocess
 import time
+import urllib.request
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -102,6 +103,14 @@ class Runner:
         except OSError:
             return []
 
+    def fetch(self, url: str, timeout: float = 5) -> str | None:
+        """Body of an HTTP GET, or ``None`` when the request fails."""
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as response:
+                return response.read().decode("utf-8", "replace")
+        except (OSError, ValueError):
+            return None
+
     def sleep(self, seconds: float) -> None:
         time.sleep(seconds)
 
@@ -117,6 +126,7 @@ class FakeRunner(Runner):
         self.inputs: list[str | None] = []
         self.stream_lines: dict[tuple[str, ...], list[str]] = {}
         self.slept: list[float] = []
+        self.urls: dict[str, str] = {}
         self._results: dict[tuple[str, ...], Result] = {}
         self._seqs: dict[tuple[str, ...], list[Result]] = {}
         self._seq_pos: dict[tuple[str, ...], int] = {}
@@ -186,6 +196,9 @@ class FakeRunner(Runner):
     def listdir(self, path: str) -> list[str]:
         base = path.rstrip("/")
         return sorted(posixpath.basename(k) for k in self.files if posixpath.dirname(k) == base)
+
+    def fetch(self, url: str, timeout: float = 5) -> str | None:
+        return self.urls.get(url)
 
     def sleep(self, seconds: float) -> None:
         self.slept.append(seconds)

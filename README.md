@@ -34,6 +34,8 @@ through HPLIP.
   one click to cancel a job or all of them.
 - **Printing options** — copies, two-sided, colour or greyscale, quality and page ranges. Page
   order follows the printer's output tray, so the stack comes out in reading order.
+- **A test page** with colour and grey samples, the printer, model, Wi-Fi network, paper size and
+  printable area.
 - **Multi-page scanning** to a single PDF, or to PNG/JPEG, with a preview of every page.
 - **Diagnostics** that check CUPS, network discovery, firewall and scanner, and tell you the
   command that fixes each problem.
