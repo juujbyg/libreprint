@@ -77,7 +77,11 @@ count="$(lpstat -v | grep -c "$QUEUE" || true)"
 [ "$count" -eq 1 ] || fail "expected exactly one $QUEUE queue, found $count"
 
 echo "== doctor and list"
-libreprint doctor --json | python3 -m json.tool >/dev/null
+# Exit code 1 means a check failed: expected here, as containers have no systemd services
+code=0
+libreprint doctor --json >/tmp/doctor.json || code=$?
+[ "$code" -le 1 ] || fail "doctor crashed with exit code $code"
+python3 -m json.tool /tmp/doctor.json >/dev/null || fail "doctor did not print valid JSON"
 libreprint list
 
 echo "integration test passed"
