@@ -5,7 +5,7 @@ Every tag `vX.Y.Z` pushed to GitHub makes the CI workflow:
 1. run the tests and build `libreprint_X.Y.Z_all.deb`,
 2. attach it to a GitHub Release (also as `libreprint_all.deb`),
 3. publish the signed APT repository and `install.sh` on GitHub Pages
-   (`https://YOUR-USERNAME.github.io/libreprint`).
+   (`https://juujbyg.github.io/libreprint`).
 
 Users who added the repository get the new version with `sudo apt upgrade`.
 
@@ -49,7 +49,7 @@ Then delete the local `.asc` file (the key stays in your gpg keyring).
    ```
 
 3. Watch the **Actions** tab. When it is green, the release page has the `.deb` and
-   `https://YOUR-USERNAME.github.io/libreprint` serves the repository.
+   `https://juujbyg.github.io/libreprint` serves the repository.
 
 The tag and `__version__` must match; otherwise APT sees the old version number.
 

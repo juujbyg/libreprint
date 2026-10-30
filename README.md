@@ -6,8 +6,8 @@
 
 **Use any printer on Linux — print, scan and check ink without the manufacturer's app.**
 
-[![CI](https://github.com/YOUR-USERNAME/libreprint/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-USERNAME/libreprint/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/YOUR-USERNAME/libreprint)](https://github.com/YOUR-USERNAME/libreprint/releases/latest)
+[![CI](https://github.com/juujbyg/libreprint/actions/workflows/ci.yml/badge.svg)](https://github.com/juujbyg/libreprint/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/juujbyg/libreprint)](https://github.com/juujbyg/libreprint/releases/latest)
 [![License: GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-blue)](LICENSE)
 
 </div>
@@ -53,22 +53,22 @@ through HPLIP.
 sets up your printer. You get updates with the rest of your system (`sudo apt upgrade`):
 
 ```sh
-curl -fsSL https://YOUR-USERNAME.github.io/libreprint/install.sh | sh
+curl -fsSL https://juujbyg.github.io/libreprint/install.sh | sh
 ```
 
 **Option 2 — add the APT repository by hand:**
 
 ```sh
-curl -fsSL https://YOUR-USERNAME.github.io/libreprint/libreprint.gpg \
+curl -fsSL https://juujbyg.github.io/libreprint/libreprint.gpg \
   | sudo tee /usr/share/keyrings/libreprint.gpg >/dev/null
-echo "deb [signed-by=/usr/share/keyrings/libreprint.gpg] https://YOUR-USERNAME.github.io/libreprint stable main" \
+echo "deb [signed-by=/usr/share/keyrings/libreprint.gpg] https://juujbyg.github.io/libreprint stable main" \
   | sudo tee /etc/apt/sources.list.d/libreprint.list
 sudo apt update && sudo apt install libreprint
 sudo libreprint setup
 ```
 
 **Option 3 — just the `.deb`.** Download `libreprint_all.deb` from the
-[latest release](https://github.com/YOUR-USERNAME/libreprint/releases/latest) and run
+[latest release](https://github.com/juujbyg/libreprint/releases/latest) and run
 `sudo apt install ./libreprint_all.deb` (no automatic updates).
 
 Then open **LibrePrint** from your app menu, or run `libreprint gui`.
@@ -211,7 +211,7 @@ Print queues created by LibrePrint are **kept**, so printing keeps working. Remo
 Run it straight from a clone, no install needed:
 
 ```sh
-git clone https://github.com/YOUR-USERNAME/libreprint.git
+git clone https://github.com/juujbyg/libreprint.git
 cd libreprint
 PYTHONPATH=src python3 -m libreprint gui     # or: list, doctor, ...
 ```

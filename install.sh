@@ -1,9 +1,9 @@
 #!/bin/sh
 # Install LibrePrint on Debian/Ubuntu from its APT repository and run the initial setup.
-# Usage: curl -fsSL https://YOUR-USERNAME.github.io/libreprint/install.sh | sh
+# Usage: curl -fsSL https://juujbyg.github.io/libreprint/install.sh | sh
 set -eu
 
-repo_url="${LIBREPRINT_APT_URL:-https://YOUR-USERNAME.github.io/libreprint}"
+repo_url="${LIBREPRINT_APT_URL:-https://juujbyg.github.io/libreprint}"
 keyring="/usr/share/keyrings/libreprint.gpg"
 source_list="/etc/apt/sources.list.d/libreprint.list"
 
