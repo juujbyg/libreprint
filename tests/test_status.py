@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+from dataclasses import replace
+
 import pytest
 from conftest import fixture
 
@@ -102,8 +104,47 @@ def test_scan_argv():
     assert "600" in argv and "Gray" in argv and argv[-1] == "/tmp/p.png"
 
 
-def test_parse_job_id():
-    assert status.parse_job_id("request id is HP-56 (1 file(s))\n") == "HP-56"
+def test_job_label():
+    job = status.Job("HP-56", "juan", 1024, "now")
+    assert status.job_label(job) == "job 56"
+    assert status.job_label(replace(job, name="Report.pdf")) == "Report.pdf"
+
+
+def test_job_title():
+    job = status.Job("HP-56", "juan", 1024, "now")
+    assert status.job_title(job, active=True) == "Job 56 · Printing now"
+    assert status.job_title(job, active=False) == "Job 56 · Waiting"
+    named = replace(job, name="Report.pdf")
+    assert status.job_title(named, active=True) == "Printing Report.pdf"
+    assert status.job_title(named, active=False) == "Report.pdf · Waiting"
+    test_page = replace(job, name=status.TEST_PAGE_JOB)
+    assert status.job_title(test_page, active=True) == "Printing test page"
+    assert status.job_title(test_page, active=False) == "Test page · Waiting"
+
+
+def test_print_argv_title():
+    argv = status.print_argv("HP", "/tmp/a.pdf", title="test page")
+    assert argv[-4:] == ["-t", "test page", "--", "/tmp/a.pdf"]
+
+
+def test_parse_job_names():
+    out = 'job-id,job-name\n74,"Bills, A&B <2026>.txt"\n75,\n'
+    assert status.parse_job_names(out) == {"74": "Bills, A&B <2026>.txt"}
+
+
+def test_fetch_jobs_adds_names():
+    runner = FakeRunner()
+    runner.on("lpstat", "-o", "HP", out="HP-55 juan 1024 Mon\nHP-56 juan 2048 Tue\n")
+    uri = "ipp://localhost/printers/HP"
+    runner.on("ipptool", "-T", "10", "-c", uri, "/dev/stdin", out="job-id,job-name\n56,a.pdf\n")
+    assert [j.name for j in status.fetch_jobs(runner, "HP")] == ["", "a.pdf"]
+
+
+def test_fetch_jobs_without_ipptool_keeps_jobs():
+    runner = FakeRunner()
+    runner.on("lpstat", "-o", "HP", out="HP-55 juan 1024 Mon\n")
+    runner.on("ipptool", "-T", "10", "-c", "ipp://localhost/printers/HP", "/dev/stdin", code=1)
+    assert [j.id for j in status.fetch_jobs(runner, "HP")] == ["HP-55"]
 
 
 def test_scanner_label():

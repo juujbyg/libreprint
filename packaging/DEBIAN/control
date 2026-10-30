@@ -3,7 +3,7 @@ Version: @VERSION@
 Architecture: all
 Maintainer: LibrePrint contributors <147175691+juujbyg@users.noreply.github.com>
 Depends: python3 (>= 3.10), cups, cups-client
-Suggests: hplip, printer-driver-hpcups, libsane-hpaio
+Suggests: hplip, printer-driver-hpcups, libsane-hpaio, libreoffice-writer, libreoffice-calc, libreoffice-impress
 Recommends: ipp-usb, avahi-daemon, avahi-utils, libnss-mdns, sane-utils, sane-airscan, cups-ipp-utils, python3-gi, gir1.2-adw-1, python3-cairo
 Section: utils
 Priority: optional

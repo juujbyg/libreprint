@@ -39,9 +39,7 @@ def load_state(runner: Runner) -> State:
     queues = data.get("queues")
     pending = data.get("pending_plugin")
     return State(
-        queues=(
-            {str(k): str(v) for k, v in queues.items()} if isinstance(queues, dict) else {}
-        ),
+        queues=({str(k): str(v) for k, v in queues.items()} if isinstance(queues, dict) else {}),
         pending_plugin=[str(m) for m in pending] if isinstance(pending, list) else [],
     )
 
@@ -81,9 +79,7 @@ def load_config(runner: Runner) -> Config:
     return Config(
         usb=flag("usb", default.usb),
         network=network,
-        accept_hp_plugin_license=flag(
-            "accept_hp_plugin_license", default.accept_hp_plugin_license
-        ),
+        accept_hp_plugin_license=flag("accept_hp_plugin_license", default.accept_hp_plugin_license),
         install_packages=flag("install_packages", default.install_packages),
     )
 

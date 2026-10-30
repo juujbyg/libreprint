@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
+import csv
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from urllib.parse import urlsplit
 
 from libreprint.discovery import ipp_attributes
@@ -18,6 +19,20 @@ QUALITY = {"draft": "3", "normal": "4", "best": "5"}
 SCAN_MODES = ("Color", "Gray")
 
 _JOB_LINE = re.compile(r"^(\S+)-(\d+)\s+(\S+)\s+(\d+)\s+(.*)$")
+
+TEST_PAGE_JOB = "test page"
+GET_JOB_NAMES = """{
+    OPERATION Get-Jobs
+    GROUP operation-attributes-tag
+    ATTR charset attributes-charset utf-8
+    ATTR naturalLanguage attributes-natural-language en
+    ATTR uri printer-uri $uri
+    ATTR name requesting-user-name $user
+    ATTR keyword requested-attributes job-id,job-name
+    DISPLAY job-id
+    DISPLAY job-name
+}
+"""
 
 
 @dataclass(frozen=True)
@@ -49,6 +64,7 @@ class Job:
     user: str
     size: int
     submitted: str
+    name: str = ""  # document name, when CUPS shares it
 
 
 def _split(value: str) -> list[str]:
@@ -103,6 +119,23 @@ def fetch_status(runner: Runner, uri: str) -> PrinterStatus | None:
     return parse_status(res.out)
 
 
+def parse_job_names(ipptool_csv: str) -> dict[str, str]:
+    """Map job number to document name from ``ipptool -c`` output."""
+    rows = csv.reader(ipptool_csv.splitlines())
+    return {row[0]: row[1] for row in rows if len(row) == 2 and row[0].isdigit() and row[1]}
+
+
+def fetch_jobs(runner: Runner, queue: str) -> list[Job]:
+    jobs = parse_jobs(runner.run(["lpstat", "-o", queue]).out)
+    if not jobs:
+        return jobs
+    # lpq cuts names at 31 characters, and CUPS hides them unless the request names the user
+    uri = f"ipp://localhost/printers/{queue}"
+    res = runner.run(["ipptool", "-T", "10", "-c", uri, "/dev/stdin"], input=GET_JOB_NAMES)
+    names = parse_job_names(res.out) if res.ok else {}
+    return [replace(j, name=names.get(j.id.rpartition("-")[2], "")) for j in jobs]
+
+
 def printer_queues(lpstat_v_out: str) -> list[Queue]:
     """Queues with a real device URI (cups-browsed ``implicitclass://`` duplicates are skipped)."""
     return [q for q in parse_lpstat_v(lpstat_v_out) if not q.uri.startswith("implicitclass:")]
@@ -138,6 +171,7 @@ def print_argv(
     quality: str = "normal",
     pages: str = "",
     reverse: bool = True,
+    title: str = "",
 ) -> list[str]:
     if sides not in SIDES:
         raise ValueError(f"unknown sides value: {sides}")
@@ -152,6 +186,8 @@ def print_argv(
     if reverse:
         # face-up output tray: last page first leaves the stack in reading order
         argv += ["-o", "outputorder=reverse"]
+    if title:
+        argv += ["-t", title]
     return [*argv, "--", path]
 
 
@@ -198,6 +234,15 @@ def run_scan(runner: Runner, argv: list[str], attempts: int = 3) -> Result:
     return res
 
 
-def parse_job_id(lp_out: str) -> str | None:
-    m = re.search(r"request id is (\S+)", lp_out)
-    return m.group(1) if m else None
+def job_label(job: Job) -> str:
+    return job.name or f"job {job.id.rpartition('-')[2]}"
+
+
+def job_title(job: Job, active: bool) -> str:
+    if not job.name:
+        number = job.id.rpartition("-")[2]
+        return f"Job {number} · {'Printing now' if active else 'Waiting'}"
+    if active:
+        return f"Printing {job.name}"
+    name = "Test page" if job.name == TEST_PAGE_JOB else job.name
+    return f"{name} · Waiting"

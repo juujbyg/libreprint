@@ -40,7 +40,8 @@ Then delete the local `.asc` file (the key stays in your gpg keyring).
 
 ## Making a release
 
-1. Set the version in `src/libreprint/__init__.py` (`__version__ = "X.Y.Z"`) and commit.
+1. Set the version in `src/libreprint/__init__.py` (`__version__ = "X.Y.Z"`), write
+   `docs/releases/vX.Y.Z.md` (it becomes the text of the release page) and commit.
 2. Tag and push:
 
    ```sh

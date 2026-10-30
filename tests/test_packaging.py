@@ -53,7 +53,10 @@ def test_control_file():
         "Recommends: ipp-usb, avahi-daemon, avahi-utils, libnss-mdns, sane-utils, sane-airscan, "
         "cups-ipp-utils, python3-gi, gir1.2-adw-1, python3-cairo\n"
     ) in control
-    assert "Suggests: hplip, printer-driver-hpcups, libsane-hpaio\n" in control
+    assert (
+        "Suggests: hplip, printer-driver-hpcups, libsane-hpaio, libreoffice-writer, "
+        "libreoffice-calc, libreoffice-impress\n"
+    ) in control
     assert "not affiliated with any printer manufacturer" in control
 
 

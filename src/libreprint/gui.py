@@ -19,7 +19,7 @@ gi.require_version("Gsk", "4.0")
 gi.require_version("Graphene", "1.0")
 from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, Graphene, Gsk, Gtk
 
-from libreprint import __version__, doctor, scanning, status
+from libreprint import __version__, convert, doctor, scanning, status
 from libreprint.models import Check
 from libreprint.queues import Queue
 from libreprint.runner import Runner
@@ -151,10 +151,11 @@ class Window(Adw.ApplicationWindow):
         self.queues: list[Queue] = []
         self.queue: Queue | None = None
         self.face_down = False  # last known output tray of the selected printer
-        self.print_path: str | None = None
+        self.print_path: str | None = None  # the file chosen
+        self.print_doc: str | None = None  # what gets printed: the file or its PDF
         self.scanners: list[str] = []
         self.pages: list[tuple[str, int]] = []  # (png path, dpi)
-        self.tmpdir = tempfile.mkdtemp(prefix="libreprint-scan-")
+        self.tmpdir = tempfile.mkdtemp(prefix="libreprint-")
         self._refreshing = False
 
         self.toasts = Adw.ToastOverlay()
@@ -279,7 +280,9 @@ class Window(Adw.ApplicationWindow):
 
         actions = Gtk.Box(spacing=12, halign=Gtk.Align.CENTER)
         test = _pill_button("Print test page", "document-print-symbolic", suggested=True)
-        test.connect("clicked", lambda *_: self._submit_print(TEST_PAGE, {}))
+        test.connect(
+            "clicked", lambda *_: self._submit_print(TEST_PAGE, {"title": status.TEST_PAGE_JOB})
+        )
         actions.append(test)
         self.web_button = _pill_button("Printer web page", "web-browser-symbolic")
         self.web_button.connect("clicked", self._open_web)
@@ -336,7 +339,7 @@ class Window(Adw.ApplicationWindow):
             info = None
             if queue.uri.startswith(("ipp://", "ipps://")):
                 info = status.fetch_status(self.runner, queue.uri)
-            jobs = status.parse_jobs(self.runner.run(["lpstat", "-o", queue.name]).out)
+            jobs = status.fetch_jobs(self.runner, queue.name)
             lpstat_p = self.runner.run(["lpstat", "-p", queue.name]).out
             return info, jobs, lpstat_p
 
@@ -413,11 +416,9 @@ class Window(Adw.ApplicationWindow):
             idle.add_prefix(Gtk.Image(icon_name="emblem-ok-symbolic", css_classes=["dim-label"]))
             self.jobs_list.append(idle)
         for position, job in enumerate(jobs):
-            number = job.id.rpartition("-")[2]
             active = printing and position == 0
-            state = "Printing now" if active else "Waiting"
             row = Adw.ActionRow(
-                title=f"Job {number} · {state}",
+                title=GLib.markup_escape_text(status.job_title(job, active)),
                 subtitle=f"{job.user} · {job.submitted}",
             )
             if active:
@@ -426,11 +427,11 @@ class Window(Adw.ApplicationWindow):
                 row.add_prefix(Gtk.Image(icon_name="document-print-symbolic"))
             cancel = Gtk.Button(
                 child=Adw.ButtonContent(label="Cancel", icon_name="process-stop-symbolic"),
-                tooltip_text=f"Cancel job {number}",
+                tooltip_text=f"Cancel {status.job_label(job)}",
                 valign=Gtk.Align.CENTER,
                 css_classes=["destructive-action", "pill", "cancel-job"],
             )
-            cancel.connect("clicked", self._cancel_job, job.id)
+            cancel.connect("clicked", self._cancel_job, job)
             row.add_suffix(cancel)
             self.jobs_list.append(row)
 
@@ -451,15 +452,16 @@ class Window(Adw.ApplicationWindow):
         if url:
             Gtk.UriLauncher(uri=url).launch(self, None, None, None)
 
-    def _cancel_job(self, button: Gtk.Button, job_id: str) -> None:
+    def _cancel_job(self, button: Gtk.Button, job: status.Job) -> None:
         button.set_sensitive(False)
+        label = status.job_label(job)
 
         def done(result: Any) -> None:
             ok = not isinstance(result, Exception) and result.ok
-            self.toast(f"Cancelled {job_id}" if ok else f"Could not cancel {job_id}")
+            self.toast(f"Cancelled {label}" if ok else f"Could not cancel {label}")
             self.refresh()
 
-        _background(lambda: self.runner.run(["cancel", job_id]), done)
+        _background(lambda: self.runner.run(["cancel", job.id]), done)
 
     # --- print page --------------------------------------------------------------
 
@@ -468,10 +470,16 @@ class Window(Adw.ApplicationWindow):
 
         doc = Adw.PreferencesGroup(
             title="Document",
-            description="Choose a file or drop it on this page (PDF, images, text)",
+            description="Choose a file or drop it on this page (PDF, images, text, Office documents)",
         )
         self.file_row = Adw.ActionRow(title="No file selected", subtitle="—")
         self.file_row.add_prefix(Gtk.Image(icon_name="text-x-generic-symbolic"))
+        self.file_spinner = _spinner()
+        self.file_spinner.set_visible(False)
+        self.file_row.add_suffix(self.file_spinner)
+        self.preview_button = Gtk.Button(label="Preview", valign=Gtk.Align.CENTER, sensitive=False)
+        self.preview_button.connect("clicked", self._preview)
+        self.file_row.add_suffix(self.preview_button)
         choose = Gtk.Button(label="Choose…", valign=Gtk.Align.CENTER)
         choose.connect("clicked", self._choose_file)
         self.file_row.add_suffix(choose)
@@ -535,14 +543,55 @@ class Window(Adw.ApplicationWindow):
         if not path or not os.path.isfile(path):
             self.toast("That is not a file that can be printed")
             return False
+        how = convert.kind(path)
+        if how == "unsupported":
+            self.toast("This type of file cannot be printed")
+            return False
         self.print_path = path
         self.file_row.set_title(GLib.markup_escape_text(os.path.basename(path)))
-        self.file_row.set_subtitle(GLib.markup_escape_text(os.path.dirname(path)))
-        self.print_button.set_sensitive(True)
+        if how == "direct":
+            self._document_ready(path)
+            return True
+        self._document_busy(True)
+
+        def done(result: Any) -> None:
+            if path != self.print_path:
+                return  # another file was chosen meanwhile
+            self._document_busy(False)
+            if isinstance(result, Exception):
+                self.print_path = None
+                self.file_row.set_subtitle(GLib.markup_escape_text(str(result)))
+                self.toast(str(result))
+                return
+            self._document_ready(result)
+
+        _background(lambda: convert.to_pdf(self.runner, path, self.tmpdir), done)
         return True
 
+    def _document_busy(self, busy: bool) -> None:
+        self.print_doc = None
+        self.file_spinner.set_visible(busy)
+        self.preview_button.set_sensitive(False)
+        self.print_button.set_sensitive(False)
+        if busy:
+            self.file_row.set_subtitle("Preparing for printing, this can take a moment…")
+
+    def _document_ready(self, doc: str) -> None:
+        self._document_busy(False)
+        self.print_doc = doc
+        folder = os.path.dirname(self.print_path or "")
+        self.file_row.set_subtitle(GLib.markup_escape_text(folder))
+        self.preview_button.set_sensitive(True)
+        self.print_button.set_sensitive(True)
+
+    def _preview(self, *_: Any) -> None:
+        if self.print_doc:
+            Gtk.FileLauncher(file=Gio.File.new_for_path(self.print_doc)).launch(
+                self, None, None, None
+            )
+
     def _print_clicked(self, *_: Any) -> None:
-        if not self.print_path:
+        if not self.print_path or not self.print_doc:
             return
         options = {
             "copies": int(self.copies_row.get_value()),
@@ -550,8 +599,9 @@ class Window(Adw.ApplicationWindow):
             "color": self.color_row.get_active(),
             "quality": ("draft", "normal", "best")[self.quality_row.get_selected()],
             "pages": self.pages_row.get_text(),
+            "title": os.path.basename(self.print_path),
         }
-        self._submit_print(self.print_path, options)
+        self._submit_print(self.print_doc, options)
 
     def _submit_print(self, path: str, options: dict[str, Any]) -> None:
         if self.queue is None:
@@ -568,8 +618,7 @@ class Window(Adw.ApplicationWindow):
                 err = str(result) if isinstance(result, Exception) else result.err.strip()
                 self.toast(f"Printing failed: {err or 'unknown error'}")
                 return
-            job = status.parse_job_id(result.out) or "job"
-            self.toast(f"Sent to the printer ({job})")
+            self.toast(f"Printing {options.get('title') or os.path.basename(path)}")
             self.refresh()
 
         _background(lambda: self.runner.run(argv, timeout=120), done)

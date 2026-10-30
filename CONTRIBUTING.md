@@ -18,7 +18,8 @@ ruff check src tests
 - Every source file starts with `# SPDX-License-Identifier: GPL-2.0-or-later`.
 - Every external command and every file access goes through the injectable `Runner`
   (`src/libreprint/runner.py`). Tests use `FakeRunner` with real recorded command output in
-  `tests/fixtures/`; tests never run system commands or touch the real filesystem.
+  `tests/fixtures/`; tests never run system commands or touch the real filesystem. The one
+  exception is `convert.py`, whose temporary work folders are real and tested under `tmp_path`.
 - Commands run with `LC_ALL=C`, so parsers can assume English output.
 - Never redistribute HP's plugin. Never modify or delete a queue LibrePrint did not create (except
   with `--force`).
@@ -29,8 +30,8 @@ ruff check src tests
 
 `src/libreprint/decide.py` is a pure function (device in, plan out); `setup.py` executes plans;
 `doctor.py` holds the diagnostics; `cli.py` is the argparse entry point. The app (`libreprint gui`)
-is `gui.py` (GTK 4 + libadwaita, imported only by that command); its logic lives in `status.py`,
-which is tested without GTK. System files are in `data/`, packaging in `packaging/`, README
+is `gui.py` (GTK 4 + libadwaita, imported only by that command); its logic lives in `status.py`
+and `convert.py`, which are tested without GTK. System files are in `data/`, packaging in `packaging/`, README
 screenshots in `docs/screenshots/` (made from demo data, never a real printer).
 
 ## Packaging and integration tests

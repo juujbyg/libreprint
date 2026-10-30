@@ -305,7 +305,8 @@ def test_setup_enables_hpaio_and_finds_scanner():
 def test_test_page_only_interactive():
     runner = make_runner()
     setup(runner, officejet(), ui=InteractiveUI())
-    assert ["lp", "-d", OFFICEJET_QUEUE, setup_mod.TEST_PAGE] in runner.calls
+    argv = ["lp", "-d", OFFICEJET_QUEUE, "-t", setup_mod.TEST_PAGE_JOB, setup_mod.TEST_PAGE]
+    assert argv in runner.calls
 
     runner = make_runner()
     setup(runner, officejet(), ui=AutoUI())

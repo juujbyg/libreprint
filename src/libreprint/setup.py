@@ -22,6 +22,7 @@ from libreprint.queues import (
 )
 from libreprint.runner import Result, Runner
 from libreprint.state import Config, State, save_state
+from libreprint.status import TEST_PAGE_JOB
 from libreprint.ui import UI, AutoUI
 
 TEST_PAGE = "/usr/share/cups/data/testprint"
@@ -250,7 +251,7 @@ def _setup_device(
 
     # 9. Test page.
     if opts.test_page and ui.interactive:
-        res = runner.run(["lp", "-d", plan.queue, TEST_PAGE])
+        res = runner.run(["lp", "-d", plan.queue, "-t", TEST_PAGE_JOB, TEST_PAGE])
         if not res.ok:
             ui.warn(f"test page failed: {res.err.strip()}")
     return outcome

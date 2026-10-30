@@ -5,9 +5,7 @@ from libreprint import queues
 from libreprint.models import Device
 from libreprint.queues import Queue
 
-UUID_URI = (
-    "dnssd://HP%20OfficeJet._ipp._tcp.local/?uuid=1C852A4D-B800-1F08-ABCD-5065F3ABC123"
-)
+UUID_URI = "dnssd://HP%20OfficeJet._ipp._tcp.local/?uuid=1C852A4D-B800-1F08-ABCD-5065F3ABC123"
 
 
 def test_parse_lpstat_v():
