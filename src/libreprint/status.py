@@ -138,7 +138,6 @@ def print_argv(
     quality: str = "normal",
     pages: str = "",
     reverse: bool = True,
-    actual_size: bool = False,
 ) -> list[str]:
     if sides not in SIDES:
         raise ValueError(f"unknown sides value: {sides}")
@@ -153,8 +152,6 @@ def print_argv(
     if reverse:
         # face-up output tray: last page first leaves the stack in reading order
         argv += ["-o", "outputorder=reverse"]
-    if actual_size:
-        argv += ["-o", "print-scaling=none"]
     return [*argv, "--", path]
 
 

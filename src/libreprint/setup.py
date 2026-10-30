@@ -3,20 +3,18 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-from libreprint import deps, hplipdb, plugin, scanning, testpage
+from libreprint import deps, hplipdb, plugin, scanning
 from libreprint import state as state_mod
 from libreprint.decide import best_ipp_uri, decide
 from libreprint.discovery import discover, parse_avahi, probe_uri
 from libreprint.hplipdb import normalize_model
 from libreprint.models import Device, Method, Plan, ScanMethod
 from libreprint.queues import (
-    Queue,
     find_existing,
     find_hpcups_ppd,
     lpadmin_argv,
@@ -158,20 +156,6 @@ def _configure_scanner(
     ui.warn(note)
 
 
-def _print_test_page(runner: Runner, queue: str, uri: str, ui: UI) -> None:
-    try:
-        created = testpage.create(runner, Queue(queue, uri))
-    except Exception as exc:  # noqa: BLE001 - fall back to the page that comes with CUPS
-        ui.warn(f"could not create the test page: {exc}")
-        created = None
-    options = ["-o", "print-quality=3", "-o", "print-scaling=none"]
-    res = runner.run(["lp", "-d", queue, *options, created or TEST_PAGE])
-    if created:
-        os.unlink(created)
-    if not res.ok:
-        ui.warn(f"test page failed: {res.err.strip()}")
-
-
 def _setup_device(
     runner: Runner, device: Device, opts: Options, config: Config, state: State, ui: UI
 ) -> Outcome:
@@ -266,7 +250,9 @@ def _setup_device(
 
     # 9. Test page.
     if opts.test_page and ui.interactive:
-        _print_test_page(runner, plan.queue, plan.uri, ui)
+        res = runner.run(["lp", "-d", plan.queue, TEST_PAGE])
+        if not res.ok:
+            ui.warn(f"test page failed: {res.err.strip()}")
     return outcome
 
 

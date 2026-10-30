@@ -302,12 +302,10 @@ def test_setup_enables_hpaio_and_finds_scanner():
     assert outcome.scanner == "hpaio:/net/officejet_pro_8600?ip=10.0.0.5"
 
 
-def test_test_page_only_interactive(monkeypatch):
-    monkeypatch.setattr(setup_mod.testpage, "create", lambda *_: None)  # no pycairo: CUPS's page
+def test_test_page_only_interactive():
     runner = make_runner()
     setup(runner, officejet(), ui=InteractiveUI())
-    options = ["-o", "print-quality=3", "-o", "print-scaling=none"]
-    assert ["lp", "-d", OFFICEJET_QUEUE, *options, setup_mod.TEST_PAGE] in runner.calls
+    assert ["lp", "-d", OFFICEJET_QUEUE, setup_mod.TEST_PAGE] in runner.calls
 
     runner = make_runner()
     setup(runner, officejet(), ui=AutoUI())

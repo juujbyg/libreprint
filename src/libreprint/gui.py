@@ -19,7 +19,7 @@ gi.require_version("Gsk", "4.0")
 gi.require_version("Graphene", "1.0")
 from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, Graphene, Gsk, Gtk
 
-from libreprint import __version__, doctor, scanning, status, testpage
+from libreprint import __version__, doctor, scanning, status
 from libreprint.models import Check
 from libreprint.queues import Queue
 from libreprint.runner import Runner
@@ -279,7 +279,7 @@ class Window(Adw.ApplicationWindow):
 
         actions = Gtk.Box(spacing=12, halign=Gtk.Align.CENTER)
         test = _pill_button("Print test page", "document-print-symbolic", suggested=True)
-        test.connect("clicked", self._print_test_page)
+        test.connect("clicked", lambda *_: self._submit_print(TEST_PAGE, {}))
         actions.append(test)
         self.web_button = _pill_button("Printer web page", "web-browser-symbolic")
         self.web_button.connect("clicked", self._open_web)
@@ -553,22 +553,7 @@ class Window(Adw.ApplicationWindow):
         }
         self._submit_print(self.print_path, options)
 
-    def _print_test_page(self, *_: Any) -> None:
-        queue = self.queue
-        if queue is None:
-            self.toast("No printer configured")
-            return
-
-        def done(result: Any) -> None:
-            if isinstance(result, Exception):
-                self.toast(f"Cannot create the test page: {result}")
-                return
-            options = {"quality": "draft", "actual_size": True}
-            self._submit_print(result or TEST_PAGE, options, temporary=result is not None)
-
-        _background(lambda: testpage.create(self.runner, queue), done)
-
-    def _submit_print(self, path: str, options: dict[str, Any], *, temporary: bool = False) -> None:
+    def _submit_print(self, path: str, options: dict[str, Any]) -> None:
         if self.queue is None:
             self.toast("No printer configured")
             return
@@ -587,14 +572,7 @@ class Window(Adw.ApplicationWindow):
             self.toast(f"Sent to the printer ({job})")
             self.refresh()
 
-        def work() -> Any:
-            try:
-                return self.runner.run(argv, timeout=120)
-            finally:
-                if temporary:
-                    os.unlink(path)
-
-        _background(work, done)
+        _background(lambda: self.runner.run(argv, timeout=120), done)
 
     # --- scan page ---------------------------------------------------------------
 
