@@ -60,7 +60,8 @@ jobs:
       - name: Install libreprint and CUPS
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ./dist/*.deb cups cups-ipp-utils cups-filters
+          apt-get install -y --no-install-recommends ./dist/*.deb cups cups-ipp-utils cups-filters \
+            dbus avahi-daemon
       - name: Run the integration test
         run: bash tests/integration/run.sh
 

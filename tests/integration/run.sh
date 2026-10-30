@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end test in a container: real cupsd + ippeveprinter acting as an HP printer.
-# Expects libreprint, cups, cups-ipp-utils and cups-filters to be installed; runs as root.
+# Expects libreprint, cups, cups-ipp-utils, cups-filters, dbus and avahi-daemon to be installed;
+# runs as root.
 set -euo pipefail
 
 QUEUE="HP_Fake_LaserJet"
@@ -40,12 +41,20 @@ wait_for() { # wait_for SECONDS COMMAND...
 
 scheduler_running() { lpstat -r 2>&1 | grep -q "scheduler is running"; }
 port_open() { (exec 3<>/dev/tcp/127.0.0.1/8631) 2>/dev/null; }
+avahi_running() { avahi-daemon --check; }
 queue_empty() { [ -z "$(lpstat -o "$QUEUE" 2>/dev/null)" ]; }
 
 echo "== starting cupsd"
 /usr/sbin/cupsd -f >/tmp/cupsd.log 2>&1 &
 pids+=("$!")
 wait_for 30 scheduler_running || { cat /tmp/cupsd.log >&2 || true; fail "cupsd did not start"; }
+
+echo "== starting avahi" # ippeveprinter cannot start without DNS-SD
+mkdir -p /run/dbus
+dbus-daemon --system --fork
+avahi-daemon --no-drop-root --no-rlimits >/tmp/avahi.log 2>&1 &
+pids+=("$!")
+wait_for 30 avahi_running || { cat /tmp/avahi.log >&2 || true; fail "avahi-daemon did not start"; }
 
 echo "== starting ippeveprinter"
 ippeveprinter -M HP -m "Fake LaserJet" -p 8631 \
