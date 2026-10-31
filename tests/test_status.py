@@ -91,6 +91,11 @@ def test_face_down_trays_are_detected():
     assert status.parse_status(by_tray).face_down is True
 
 
+def test_stack_order_puts_the_first_document_on_top():
+    assert status.stack_order(["a", "b", "c"], face_down=True) == ["a", "b", "c"]
+    assert status.stack_order(["a", "b", "c"], face_down=False) == ["c", "b", "a"]
+
+
 def test_print_argv_rejects_bad_input():
     with pytest.raises(ValueError):
         status.print_argv("Q", "a.pdf", pages="1;rm")

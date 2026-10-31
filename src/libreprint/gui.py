@@ -7,7 +7,8 @@ import os
 import shutil
 import tempfile
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
 import gi
@@ -121,6 +122,48 @@ def _pill_button(label: str, icon: str, suggested: bool = False) -> Gtk.Button:
     return button
 
 
+class DocumentRow(Adw.ActionRow):
+    """A document waiting to be printed, which may still be converting to PDF."""
+
+    def __init__(
+        self,
+        path: str,
+        pdf: Future[str],
+        preview: Callable[[DocumentRow], None],
+        remove: Callable[[DocumentRow], None],
+    ):
+        super().__init__(title=GLib.markup_escape_text(os.path.basename(path)))
+        self.path = path
+        self.pdf = pdf  # what gets printed: the file or its PDF
+        self.add_prefix(Gtk.Image(icon_name="text-x-generic-symbolic"))
+        self.spinner = _spinner()
+        self.add_suffix(self.spinner)
+        self.preview_button = Gtk.Button(label="Preview", valign=Gtk.Align.CENTER)
+        self.preview_button.connect("clicked", lambda *_: preview(self))
+        self.add_suffix(self.preview_button)
+        remove_button = Gtk.Button(label="Remove", valign=Gtk.Align.CENTER)
+        remove_button.connect("clicked", lambda *_: remove(self))
+        self.add_suffix(remove_button)
+        self.update()
+
+    @property
+    def error(self) -> BaseException | None:
+        if self.pdf.done() and not self.pdf.cancelled():
+            return self.pdf.exception()
+        return None
+
+    def update(self) -> None:
+        ready = self.pdf.done() and self.error is None
+        self.spinner.set_visible(not self.pdf.done())
+        self.preview_button.set_sensitive(ready)
+        if self.error is not None:
+            self.set_subtitle(GLib.markup_escape_text(str(self.error)))
+        elif ready:
+            self.set_subtitle(GLib.markup_escape_text(os.path.dirname(self.path)))
+        else:
+            self.set_subtitle("Preparing for printing, this can take a moment…")
+
+
 def _rgba(spec: str, alpha: float | None = None) -> Gdk.RGBA:
     rgba = Gdk.RGBA()
     rgba.parse(spec)
@@ -164,8 +207,9 @@ class Window(Adw.ApplicationWindow):
         self.queues: list[Queue] = []
         self.queue: Queue | None = None
         self.face_down = False  # last known output tray of the selected printer
-        self.print_path: str | None = None  # the file chosen
-        self.print_doc: str | None = None  # what gets printed: the file or its PDF
+        self.documents: list[DocumentRow] = []
+        self.converter = ThreadPoolExecutor(max_workers=1)  # LibreOffice runs one at a time
+        self._printing = 0  # batches still being sent to the printer
         self.scanners: list[str] = []
         self.pages: list[tuple[str, int]] = []  # (png path, dpi)
         self.tmpdir = tempfile.mkdtemp(prefix="libreprint-")
@@ -214,6 +258,10 @@ class Window(Adw.ApplicationWindow):
         self.toasts.add_toast(Adw.Toast(title=GLib.markup_escape_text(text), timeout=4))
 
     def _on_close(self, *_: Any) -> bool:
+        if self._printing:  # documents still converting would never reach the printer
+            self.set_visible(False)
+            return True
+        self.converter.shutdown(wait=False, cancel_futures=True)
         shutil.rmtree(self.tmpdir, ignore_errors=True)
         return False
 
@@ -482,24 +530,20 @@ class Window(Adw.ApplicationWindow):
         page = Adw.PreferencesPage()
 
         doc = Adw.PreferencesGroup(
-            title="Document",
-            description="Choose a file or drop it on this page (PDF, images, text, Office documents)",
+            title="Documents",
+            description="Add files or drop them on this page (PDF, images, text, Office "
+            "documents). Hold Ctrl in the file window to pick several.",
         )
-        self.file_row = Adw.ActionRow(title="No file selected", subtitle="—")
-        self.file_row.add_prefix(Gtk.Image(icon_name="text-x-generic-symbolic"))
-        self.file_spinner = _spinner()
-        self.file_spinner.set_visible(False)
-        self.file_row.add_suffix(self.file_spinner)
-        self.preview_button = Gtk.Button(label="Preview", valign=Gtk.Align.CENTER, sensitive=False)
-        self.preview_button.connect("clicked", self._preview)
-        self.file_row.add_suffix(self.preview_button)
-        choose = Gtk.Button(label="Choose…", valign=Gtk.Align.CENTER)
-        choose.connect("clicked", self._choose_file)
-        self.file_row.add_suffix(choose)
-        doc.add(self.file_row)
+        add = Gtk.Button(label="Add files…", valign=Gtk.Align.CENTER)
+        add.connect("clicked", self._choose_files)
+        doc.set_header_suffix(add)
+        self.document_list = _boxed_list(doc)
+        self.no_documents_row = Adw.ActionRow(title="No documents selected")
+        self.no_documents_row.add_prefix(Gtk.Image(icon_name="text-x-generic-symbolic"))
+        self.document_list.append(self.no_documents_row)
         page.add(doc)
 
-        opts = Adw.PreferencesGroup(title="Options")
+        opts = Adw.PreferencesGroup(title="Options", description="Used for every document")
         self.copies_row = Adw.SpinRow.new_with_range(1, 99, 1)
         self.copies_row.set_title("Copies")
         self.sides_row = Adw.ComboRow(
@@ -532,89 +576,181 @@ class Window(Adw.ApplicationWindow):
         go.add(self.print_button)
         page.add(go)
 
-        drop = Gtk.DropTarget.new(Gio.File, Gdk.DragAction.COPY)
-        drop.connect("drop", lambda _t, value, _x, _y: self._set_print_file(_local_path(value)))
+        drop = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
+        drop.connect("drop", lambda _t, value, _x, _y: self._add_files(value.get_files()))
         drop.connect("enter", lambda *_: page.add_css_class("drop-hover") or Gdk.DragAction.COPY)
         drop.connect("leave", lambda *_: page.remove_css_class("drop-hover"))
         page.add_controller(drop)
 
         self.stack.add_titled_with_icon(page, "print", "Print", "document-print-symbolic")
 
-    def _choose_file(self, *_: Any) -> None:
-        dialog = Gtk.FileDialog(title="Choose a document to print")
+    def _choose_files(self, *_: Any) -> None:
+        dialog = Gtk.FileDialog(title="Choose documents to print")
 
         def done(dlg: Gtk.FileDialog, result: Gio.AsyncResult) -> None:
             try:
-                file = dlg.open_finish(result)
+                files = dlg.open_multiple_finish(result)
             except GLib.Error:
                 return  # cancelled
-            self._set_print_file(_local_path(file))
+            self._add_files(files)
 
-        dialog.open(self, None, done)
+        dialog.open_multiple(self, None, done)
 
-    def _set_print_file(self, path: str | None) -> bool:
-        if not path or not os.path.isfile(path):
-            self.toast("That is not a file that can be printed")
-            return False
-        how = convert.kind(path)
-        if how == "unsupported":
-            self.toast("This type of file cannot be printed")
-            return False
-        self.print_path = path
-        self.file_row.set_title(GLib.markup_escape_text(os.path.basename(path)))
-        if how == "direct":
-            self._document_ready(path)
-            return True
-        self._document_busy(True)
-
-        def done(result: Any) -> None:
-            if path != self.print_path:
-                return  # another file was chosen meanwhile
-            self._document_busy(False)
-            if isinstance(result, Exception):
-                self.print_path = None
-                self.file_row.set_subtitle(GLib.markup_escape_text(str(result)))
-                self.toast(str(result))
-                return
-            self._document_ready(result)
-
-        _background(lambda: convert.to_pdf(self.runner, path, self.tmpdir), done)
-        return True
-
-    def _document_busy(self, busy: bool) -> None:
-        self.print_doc = None
-        self.file_spinner.set_visible(busy)
-        self.preview_button.set_sensitive(False)
-        self.print_button.set_sensitive(False)
-        if busy:
-            self.file_row.set_subtitle("Preparing for printing, this can take a moment…")
-
-    def _document_ready(self, doc: str) -> None:
-        self._document_busy(False)
-        self.print_doc = doc
-        folder = os.path.dirname(self.print_path or "")
-        self.file_row.set_subtitle(GLib.markup_escape_text(folder))
-        self.preview_button.set_sensitive(True)
-        self.print_button.set_sensitive(True)
-
-    def _preview(self, *_: Any) -> None:
-        if self.print_doc:
-            Gtk.FileLauncher(file=Gio.File.new_for_path(self.print_doc)).launch(
-                self, None, None, None
+    def _add_files(self, files: Iterable[Gio.File]) -> bool:
+        rejected = 0
+        added = False
+        for file in files:
+            path = _local_path(file)
+            if not path or not os.path.isfile(path) or convert.kind(path) == "unsupported":
+                rejected += 1
+            elif all(row.path != path for row in self.documents):
+                self._add_document(path)
+                added = True
+        if rejected:
+            self.toast(
+                "That file cannot be printed"
+                if rejected == 1
+                else f"{rejected} files cannot be printed"
             )
+        return added
+
+    def _add_document(self, path: str) -> None:
+        if convert.kind(path) == "direct":
+            pdf: Future[str] = Future()
+            pdf.set_result(path)
+        else:
+            pdf = self.converter.submit(convert.to_pdf, self.runner, path, self.tmpdir)
+        row = DocumentRow(path, pdf, self._preview, self._remove_document)
+        self._list_document(row)
+        pdf.add_done_callback(lambda _: GLib.idle_add(self._document_done, row))
+
+    def _list_document(self, row: DocumentRow) -> None:
+        self.documents.append(row)
+        self.document_list.append(row)
+        self._documents_changed()
+
+    def _unlist_document(self, row: DocumentRow) -> None:
+        self.documents.remove(row)
+        self.document_list.remove(row)
+        self._documents_changed()
+
+    def _remove_document(self, row: DocumentRow) -> None:
+        row.pdf.cancel()  # a conversion already running ends on its own
+        self._unlist_document(row)
+
+    def _documents_changed(self) -> None:
+        self.no_documents_row.set_visible(not self.documents)
+        count = sum(row.error is None for row in self.documents)
+        self.print_button.set_sensitive(count > 0)
+        label = f"Print {count} documents" if count > 1 else "Print"
+        self.print_button.get_child().set_label(label)
+
+    def _document_done(self, row: DocumentRow) -> None:
+        if row not in self.documents:
+            return  # removed or already being printed, which reports its own errors
+        row.update()
+        self._documents_changed()
+        if row.error is not None:
+            self.toast(str(row.error))
+
+    def _preview(self, row: DocumentRow) -> None:
+        Gtk.FileLauncher(file=Gio.File.new_for_path(row.pdf.result())).launch(
+            self, None, None, None
+        )
 
     def _print_clicked(self, *_: Any) -> None:
-        if not self.print_path or not self.print_doc:
+        rows = [row for row in self.documents if row.error is None]
+        if not rows:
             return
+        if self.queue is None:
+            self.toast("No printer configured")
+            return
+        queue = self.queue.name
+        reverse = not self.face_down
         options = {
             "copies": int(self.copies_row.get_value()),
             "sides": status.SIDES[self.sides_row.get_selected()],
             "color": self.color_row.get_active(),
             "quality": ("draft", "normal", "best")[self.quality_row.get_selected()],
             "pages": self.pages_row.get_text(),
-            "title": os.path.basename(self.print_path),
         }
-        self._submit_print(self.print_doc, options)
+        try:
+            status.print_argv(queue, "", reverse=reverse, **options)
+        except ValueError as exc:
+            self.toast(str(exc).capitalize())
+            return
+        form = self._print_form()
+        name = os.path.basename(rows[0].path) if len(rows) == 1 else f"{len(rows)} documents"
+        waiting = not all(row.pdf.done() for row in rows)
+        self.toast(f"Preparing {name} for printing" if waiting else f"Printing {name}")
+        for row in rows:
+            self._unlist_document(row)
+        self._set_print_form()
+
+        def done(result: Any) -> None:
+            self._printing -= 1
+            if isinstance(result, Exception):
+                result = [(row, str(result)) for row in rows]
+            self._restore_failed(result, form)
+            self.refresh()
+            if not self.get_visible() and not self._printing:
+                self.close()  # closed while printing, and not opened again since
+
+        self._printing += 1
+        ordered = status.stack_order(rows, self.face_down)
+        _background(lambda: self._send_documents(ordered, queue, reverse, options), done)
+
+    def _send_documents(
+        self, rows: list[DocumentRow], queue: str, reverse: bool, options: dict[str, Any]
+    ) -> list[tuple[DocumentRow, str]]:
+        """Print ``rows``, waiting for conversions, and return those that failed with why."""
+        failed = []
+        for row in rows:
+            title = os.path.basename(row.path)
+            try:
+                argv = status.print_argv(
+                    queue, row.pdf.result(), reverse=reverse, title=title, **options
+                )
+                result = self.runner.run(argv, timeout=120)
+            except Exception as exc:  # noqa: BLE001 - surfaced to the user by ``done``
+                failed.append((row, str(exc)))
+                continue
+            if not result.ok:
+                failed.append((row, result.err.strip() or "unknown error"))
+        return failed
+
+    def _restore_failed(
+        self, failed: list[tuple[DocumentRow, str]], form: tuple[int, int, bool, int, str]
+    ) -> None:
+        if not failed:
+            return
+        row, err = failed[0]
+        name = os.path.basename(row.path) if len(failed) == 1 else f"{len(failed)} documents"
+        self.toast(f"Could not print {name}: {err}")
+        if not self.documents:  # otherwise the options now belong to the newer documents
+            self._set_print_form(*form)
+        for row, _ in failed:
+            if all(other.path != row.path for other in self.documents):
+                row.update()
+                self._list_document(row)
+
+    def _print_form(self) -> tuple[int, int, bool, int, str]:
+        return (
+            int(self.copies_row.get_value()),
+            self.sides_row.get_selected(),
+            self.color_row.get_active(),
+            self.quality_row.get_selected(),
+            self.pages_row.get_text(),
+        )
+
+    def _set_print_form(
+        self, copies: int = 1, sides: int = 0, color: bool = True, quality: int = 1, pages: str = ""
+    ) -> None:
+        self.copies_row.set_value(copies)
+        self.sides_row.set_selected(sides)
+        self.color_row.set_active(color)
+        self.quality_row.set_selected(quality)
+        self.pages_row.set_text(pages)
 
     def _submit_print(self, path: str, options: dict[str, Any]) -> None:
         if self.queue is None:

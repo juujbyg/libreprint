@@ -6,6 +6,7 @@ from __future__ import annotations
 import csv
 import re
 from dataclasses import dataclass, replace
+from typing import Any
 from urllib.parse import urlsplit
 
 from libreprint.discovery import ipp_attributes
@@ -189,6 +190,12 @@ def print_argv(
     if title:
         argv += ["-t", title]
     return [*argv, "--", path]
+
+
+def stack_order(documents: list[Any], face_down: bool) -> list[Any]:
+    """Order to send ``documents`` in so the first one ends up first in the output tray."""
+    # each sheet lands on the last one: face up, the first document has to be printed last
+    return list(documents) if face_down else documents[::-1]
 
 
 def scan_argv(

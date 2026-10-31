@@ -32,8 +32,9 @@ through HPLIP.
 - **Ink levels at a glance**, with a warning when a cartridge is running low.
 - **Print queue you can see and control** — a banner on every screen while something prints, and
   one click to cancel a job or all of them.
-- **Any document** — PDF, images and text print directly. Word, Excel, PowerPoint, OpenDocument
-  and similar files are converted with LibreOffice, and you can preview the result first.
+- **Any document, several at once** — PDF, images and text print directly. Word, Excel,
+  PowerPoint, OpenDocument and similar files are converted with LibreOffice in the background, and
+  you can preview the result first or press Print without waiting.
 - **Printing options** — copies, two-sided, colour or greyscale, quality and page ranges. Page
   order follows the printer's output tray, so the stack comes out in reading order.
 - **Multi-page scanning** to a single PDF, or to PNG/JPEG, with a preview of every page.
