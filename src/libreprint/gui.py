@@ -9,6 +9,7 @@ import tempfile
 import threading
 from collections.abc import Callable, Iterable
 from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
 
 import gi
@@ -1105,6 +1106,14 @@ def save_scan(pages: list[tuple[str, int]], target: str) -> None:
         shutil.copyfile(pages[0][0], target)
 
 
+def _register_icon() -> None:
+    """Use the app icon for the window, also when running from a source checkout."""
+    theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+    if not theme.has_icon(APP_ID):
+        theme.add_search_path(str(Path(__file__).resolve().parents[2] / "data" / "icons"))
+    Gtk.Window.set_default_icon_name(APP_ID)
+
+
 class App(Adw.Application):
     def __init__(self, runner: Runner):
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
@@ -1114,6 +1123,7 @@ class App(Adw.Application):
     def _on_activate(self, app: Adw.Application) -> None:
         window = self.get_active_window()
         if window is None:
+            _register_icon()
             css = Gtk.CssProvider()
             css.load_from_string(_CSS)
             Gtk.StyleContext.add_provider_for_display(
@@ -1125,6 +1135,7 @@ class App(Adw.Application):
                 "activate",
                 lambda *_: Adw.AboutDialog(
                     application_name="LibrePrint",
+                    application_icon=APP_ID,
                     version=__version__,
                     comments=_("Set up and use any printer on Linux."),
                     license_type=Gtk.License.GPL_2_0,

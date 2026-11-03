@@ -27,6 +27,7 @@ mkdir -p \
     "$stage/usr/lib/systemd/system" \
     "$stage/etc/libreprint" \
     "$stage/usr/share/applications" \
+    "$stage/usr/share/icons/hicolor/scalable/apps" \
     "$stage/usr/share/doc/libreprint"
 
 # Python package: sources only, no __pycache__.
@@ -48,6 +49,8 @@ for unit in data/*.service; do
 done
 install -m 644 data/libreprint.conf "$stage/etc/libreprint/libreprint.conf"
 install -m 644 data/io.github.libreprint.LibrePrint.desktop "$stage/usr/share/applications/"
+install -m 644 data/icons/hicolor/scalable/apps/io.github.libreprint.LibrePrint.svg \
+    "$stage/usr/share/icons/hicolor/scalable/apps/"
 
 cat > "$stage/usr/share/doc/libreprint/copyright" <<CPEOF
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
