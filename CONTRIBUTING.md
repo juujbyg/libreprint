@@ -23,7 +23,8 @@ ruff check src tests
 - Commands run with `LC_ALL=C`, so parsers can assume English output.
 - Never redistribute HP's plugin. Never modify or delete a queue LibrePrint did not create (except
   with `--force`).
-- User-facing messages are in English.
+- User-facing messages are written in English and wrapped in `_()` (`libreprint.i18n`); use constant
+  string literals and `.format()` for variables, never f-strings, so they can be extracted.
 - Shell scripts and unit files use LF line endings (enforced by `.gitattributes`).
 
 ## Layout
@@ -50,3 +51,11 @@ write a test that parses it.
 ## Reporting hardware results
 
 Add a row to [docs/HARDWARE.md](docs/HARDWARE.md) in the same pull request or issue.
+
+## Translations
+
+Languages live in `src/libreprint/lang_<code>.py` (a `MESSAGES` dict from the English text to the
+translation; Spanish, German, French and Dutch exist). To add one: copy `lang_es.py`, translate
+the values (keep `{placeholders}` and markup), add the code to `LANGUAGES` in `i18n.py`, and
+optionally translate `README.md` to `README.<code>.md`. `tests/test_i18n.py` fails if a catalog misses a
+message or changes a placeholder. Try it with `LIBREPRINT_LANG=de libreprint gui`.

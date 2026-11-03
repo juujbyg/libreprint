@@ -1,3 +1,5 @@
+**English** · [Español](README.es.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Nederlands](README.nl.md)
+
 <div align="center">
 
 <img src="docs/screenshots/status.png" alt="LibrePrint showing a printer, its print queue and ink levels" width="720">

@@ -21,6 +21,7 @@ gi.require_version("Graphene", "1.0")
 from gi.repository import Adw, Gdk, GdkPixbuf, Gio, GLib, Graphene, Gsk, Gtk
 
 from libreprint import __version__, convert, doctor, scanning, status
+from libreprint.i18n import _
 from libreprint.models import Check
 from libreprint.queues import Queue
 from libreprint.runner import Runner
@@ -46,25 +47,36 @@ banner.queue-banner > revealer > widget { background-color: @error_bg_color; col
 banner.queue-banner button { background-color: alpha(white, 0.2); color: @error_fg_color; }
 """
 
-_STATE_LABELS = {
-    "idle": "Ready",
-    "processing": "Printing",
-    "stopped": "Stopped",
-    "unknown": "Unreachable",
-}
-_CHECK_TITLES = {
-    "cups-service": "Printing service (CUPS)",
-    "avahi-service": "Network discovery (Avahi)",
-    "nss-mdns": "Printer name resolution (mDNS)",
-    "ipp-usb": "USB driverless access (ipp-usb)",
-    "firewall-mdns": "Firewall",
-    "queues-enabled": "Print queues enabled",
-    "queues-duplicate": "No duplicate queues",
-    "hp-plugin": "HP plugin",
-    "hplip-model": "Model support",
-    "scanner": "Scanner",
-    "user-groups": "Printer administration rights",
-}
+_STATES = ("idle", "processing", "stopped", "unknown")
+
+
+def _state_label(state: str) -> str:
+    labels = {
+        "idle": _("Ready"),
+        "processing": _("Printing"),
+        "stopped": _("Stopped"),
+        "unknown": _("Unreachable"),
+    }
+    return labels.get(state, state.title())
+
+
+def _check_title(check_id: str) -> str:
+    titles = {
+        "cups-service": _("Printing service (CUPS)"),
+        "avahi-service": _("Network discovery (Avahi)"),
+        "nss-mdns": _("Printer name resolution (mDNS)"),
+        "ipp-usb": _("USB driverless access (ipp-usb)"),
+        "firewall-mdns": _("Firewall"),
+        "queues-enabled": _("Print queues enabled"),
+        "queues-duplicate": _("No duplicate queues"),
+        "hp-plugin": _("HP plugin"),
+        "hplip-model": _("Model support"),
+        "scanner": _("Scanner"),
+        "user-groups": _("Printer administration rights"),
+    }
+    return titles.get(check_id, check_id.replace("-", " ").capitalize())
+
+
 _CHECK_ICONS = {
     "ok": ("emblem-ok-symbolic", "success"),
     "warn": ("dialog-warning-symbolic", "warning"),
@@ -138,10 +150,10 @@ class DocumentRow(Adw.ActionRow):
         self.add_prefix(Gtk.Image(icon_name="text-x-generic-symbolic"))
         self.spinner = _spinner()
         self.add_suffix(self.spinner)
-        self.preview_button = Gtk.Button(label="Preview", valign=Gtk.Align.CENTER)
+        self.preview_button = Gtk.Button(label=_("Preview"), valign=Gtk.Align.CENTER)
         self.preview_button.connect("clicked", lambda *_: preview(self))
         self.add_suffix(self.preview_button)
-        remove_button = Gtk.Button(label="Remove", valign=Gtk.Align.CENTER)
+        remove_button = Gtk.Button(label=_("Remove"), valign=Gtk.Align.CENTER)
         remove_button.connect("clicked", lambda *_: remove(self))
         self.add_suffix(remove_button)
         self.update()
@@ -161,7 +173,7 @@ class DocumentRow(Adw.ActionRow):
         elif ready:
             self.set_subtitle(GLib.markup_escape_text(os.path.dirname(self.path)))
         else:
-            self.set_subtitle("Preparing for printing, this can take a moment…")
+            self.set_subtitle(_("Preparing for printing, this can take a moment…"))
 
 
 def _rgba(spec: str, alpha: float | None = None) -> Gdk.RGBA:
@@ -222,19 +234,19 @@ class Window(Adw.ApplicationWindow):
         header = Adw.HeaderBar()
         switcher = Adw.ViewSwitcher(stack=self.stack, policy=Adw.ViewSwitcherPolicy.WIDE)
         header.set_title_widget(switcher)
-        self.queue_menu = Gtk.DropDown(visible=False, tooltip_text="Printer")
+        self.queue_menu = Gtk.DropDown(visible=False, tooltip_text=_("Printer"))
         self.queue_menu.connect("notify::selected", self._on_queue_selected)
         header.pack_start(self.queue_menu)
-        refresh = Gtk.Button(icon_name="view-refresh-symbolic", tooltip_text="Refresh")
+        refresh = Gtk.Button(icon_name="view-refresh-symbolic", tooltip_text=_("Refresh"))
         refresh.connect("clicked", lambda *_: self.refresh())
         menu = Gio.Menu()
-        menu.append("About LibrePrint", "app.about")
+        menu.append(_("About LibrePrint"), "app.about")
         header.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu))
         header.pack_end(refresh)
 
         view = Adw.ToolbarView(content=self.toasts)
         view.add_top_bar(header)
-        self.banner = Adw.Banner(button_label="Cancel all", revealed=False)
+        self.banner = Adw.Banner(button_label=_("Cancel all"), revealed=False)
         self.banner.add_css_class("queue-banner")
         self.banner.connect("button-clicked", self._cancel_all)
         view.add_top_bar(self.banner)
@@ -257,7 +269,7 @@ class Window(Adw.ApplicationWindow):
     def toast(self, text: str) -> None:
         self.toasts.add_toast(Adw.Toast(title=GLib.markup_escape_text(text), timeout=4))
 
-    def _on_close(self, *_: Any) -> bool:
+    def _on_close(self, *_args: Any) -> bool:
         if self._printing:  # documents still converting would never reach the printer
             self.set_visible(False)
             return True
@@ -283,7 +295,7 @@ class Window(Adw.ApplicationWindow):
 
         def done(result: Any) -> None:
             if isinstance(result, Exception):
-                self.toast(f"Cannot read printers: {result}")
+                self.toast(_("Cannot read printers: {error}").format(error=result))
                 return
             self.queues, default = result
             names = [q.name for q in self.queues]
@@ -297,7 +309,7 @@ class Window(Adw.ApplicationWindow):
 
         _background(work, done)
 
-    def _on_queue_selected(self, *_: Any) -> None:
+    def _on_queue_selected(self, *_args: Any) -> None:
         index = self.queue_menu.get_selected()
         if 0 <= index < len(self.queues):
             self.queue = self.queues[index]
@@ -311,8 +323,8 @@ class Window(Adw.ApplicationWindow):
         self.status_stack.add_named(
             Adw.StatusPage(
                 icon_name="printer-symbolic",
-                title="No printer configured",
-                description="Run “sudo libreprint setup” to add your printer.",
+                title=_("No printer configured"),
+                description=_("Run “sudo libreprint setup” to add your printer."),
             ),
             "empty",
         )
@@ -340,19 +352,19 @@ class Window(Adw.ApplicationWindow):
         box.append(hero)
 
         actions = Gtk.Box(spacing=12, halign=Gtk.Align.CENTER)
-        test = _pill_button("Print test page", "document-print-symbolic", suggested=True)
+        test = _pill_button(_("Print test page"), "document-print-symbolic", suggested=True)
         test.connect(
             "clicked", lambda *_: self._submit_print(TEST_PAGE, {"title": status.TEST_PAGE_JOB})
         )
         actions.append(test)
-        self.web_button = _pill_button("Printer web page", "web-browser-symbolic")
+        self.web_button = _pill_button(_("Printer web page"), "web-browser-symbolic")
         self.web_button.connect("clicked", self._open_web)
         actions.append(self.web_button)
         box.append(actions)
 
-        self.jobs_group = Adw.PreferencesGroup(title="Print queue")
+        self.jobs_group = Adw.PreferencesGroup(title=_("Print queue"))
         self.cancel_all_button = Gtk.Button(
-            child=Adw.ButtonContent(label="Cancel all", icon_name="process-stop-symbolic"),
+            child=Adw.ButtonContent(label=_("Cancel all"), icon_name="process-stop-symbolic"),
             css_classes=["destructive-action", "pill", "cancel-job"],
             valign=Gtk.Align.CENTER,
             visible=False,
@@ -363,7 +375,7 @@ class Window(Adw.ApplicationWindow):
         box.append(self.jobs_group)
 
         self.ink_group = Adw.PreferencesGroup(
-            title="Ink", description="Levels reported by the printer"
+            title=_("Ink"), description=_("Levels reported by the printer")
         )
         self.ink_box = Gtk.FlowBox(
             selection_mode=Gtk.SelectionMode.NONE,
@@ -375,10 +387,10 @@ class Window(Adw.ApplicationWindow):
         self.ink_group.add(self.ink_box)
         box.append(self.ink_group)
 
-        self.details_group = Adw.PreferencesGroup(title="Details")
-        self.uri_row = Adw.ActionRow(title="Connection")
-        self.queue_row = Adw.ActionRow(title="CUPS queue")
-        self.firmware_row = Adw.ActionRow(title="Firmware")
+        self.details_group = Adw.PreferencesGroup(title=_("Details"))
+        self.uri_row = Adw.ActionRow(title=_("Connection"))
+        self.queue_row = Adw.ActionRow(title=_("CUPS queue"))
+        self.firmware_row = Adw.ActionRow(title=_("Firmware"))
         for row in (self.uri_row, self.queue_row, self.firmware_row):
             row.add_css_class("property")
             self.details_group.add(row)
@@ -387,7 +399,9 @@ class Window(Adw.ApplicationWindow):
         clamp = Adw.Clamp(maximum_size=760, child=box)
         self.status_stack.add_named(Gtk.ScrolledWindow(child=clamp, vexpand=True), "status")
         self.status_stack.set_visible_child_name("loading")
-        self.stack.add_titled_with_icon(self.status_stack, "status", "Printer", "printer-symbolic")
+        self.stack.add_titled_with_icon(
+            self.status_stack, "status", _("Printer"), "printer-symbolic"
+        )
 
     def refresh(self) -> None:
         queue = self.queue
@@ -407,7 +421,7 @@ class Window(Adw.ApplicationWindow):
         def done(result: Any) -> None:
             self._refreshing = False
             if isinstance(result, Exception):
-                self.toast(f"Cannot read printer status: {result}")
+                self.toast(_("Cannot read printer status: {error}").format(error=result))
                 return
             self._show_status(queue, *result)
 
@@ -423,10 +437,10 @@ class Window(Adw.ApplicationWindow):
         elif info is None and "now printing" in lpstat_p:
             state = "processing"
         self.model_label.set_label(info.model if info else queue.name.replace("_", " "))
-        for name in _STATE_LABELS:
+        for name in _STATES:
             self.state_label.remove_css_class(f"state-{name}")
         self.state_label.add_css_class(f"state-{state}")
-        self.state_label.set_label(_STATE_LABELS.get(state, state.title()))
+        self.state_label.set_label(_state_label(state))
         reasons = [r.replace("-", " ") for r in (info.reasons if info else ())]
         detail = (info.message if info else "") or ", ".join(reasons)
         self.reason_label.set_label(detail)
@@ -450,7 +464,7 @@ class Window(Adw.ApplicationWindow):
             name = supply.name.capitalize()
             card.append(Gtk.Label(label=name, wrap=True, css_classes=["caption"]))
             if supply.low:
-                low = Gtk.Label(label="Low — order soon", css_classes=["caption", "ink-low"])
+                low = Gtk.Label(label=_("Low — order soon"), css_classes=["caption", "ink-low"])
                 card.append(low)
             self.ink_box.append(card)
 
@@ -461,10 +475,19 @@ class Window(Adw.ApplicationWindow):
     def _show_jobs(self, jobs: list[status.Job], printing: bool) -> None:
         self._jobs = jobs
         count = len(jobs)
-        waiting = f"{count} job{'s' if count != 1 else ''}"
-        self.jobs_group.set_description(f"{waiting} in the queue" if jobs else None)
+        if count == 1:
+            waiting = _("{count} job").format(count=count)
+        else:
+            waiting = _("{count} jobs").format(count=count)
+        self.jobs_group.set_description(
+            _("{waiting} in the queue").format(waiting=waiting) if jobs else None
+        )
         self.cancel_all_button.set_visible(count > 1)
-        self.banner.set_title(f"{'Printing' if printing else 'Queued'} — {waiting} in the queue")
+        if printing:
+            banner = _("Printing — {waiting} in the queue")
+        else:
+            banner = _("Queued — {waiting} in the queue")
+        self.banner.set_title(banner.format(waiting=waiting))
         self.banner.set_revealed(bool(jobs))
         if jobs:
             self.jobs_list.add_css_class("queue-active")
@@ -473,7 +496,9 @@ class Window(Adw.ApplicationWindow):
 
         self.jobs_list.remove_all()
         if not jobs:
-            idle = Adw.ActionRow(title="Nothing printing", subtitle="Jobs you send appear here")
+            idle = Adw.ActionRow(
+                title=_("Nothing printing"), subtitle=_("Jobs you send appear here")
+            )
             idle.add_prefix(Gtk.Image(icon_name="emblem-ok-symbolic", css_classes=["dim-label"]))
             self.jobs_list.append(idle)
         for position, job in enumerate(jobs):
@@ -487,8 +512,8 @@ class Window(Adw.ApplicationWindow):
             else:
                 row.add_prefix(Gtk.Image(icon_name="document-print-symbolic"))
             cancel = Gtk.Button(
-                child=Adw.ButtonContent(label="Cancel", icon_name="process-stop-symbolic"),
-                tooltip_text=f"Cancel {status.job_label(job)}",
+                child=Adw.ButtonContent(label=_("Cancel"), icon_name="process-stop-symbolic"),
+                tooltip_text=_("Cancel {label}").format(label=status.job_label(job)),
                 valign=Gtk.Align.CENTER,
                 css_classes=["destructive-action", "pill", "cancel-job"],
             )
@@ -496,19 +521,19 @@ class Window(Adw.ApplicationWindow):
             row.add_suffix(cancel)
             self.jobs_list.append(row)
 
-    def _cancel_all(self, *_: Any) -> None:
+    def _cancel_all(self, *_args: Any) -> None:
         if self.queue is None:
             return
         queue = self.queue.name
 
         def done(result: Any) -> None:
             ok = not isinstance(result, Exception) and result.ok
-            self.toast("Cancelled all jobs" if ok else "Could not cancel the jobs")
+            self.toast(_("Cancelled all jobs") if ok else _("Could not cancel the jobs"))
             self.refresh()
 
         _background(lambda: self.runner.run(["cancel", "-a", queue]), done)
 
-    def _open_web(self, *_: Any) -> None:
+    def _open_web(self, *_args: Any) -> None:
         url = status.web_url(self.queue.uri) if self.queue else None
         if url:
             Gtk.UriLauncher(uri=url).launch(self, None, None, None)
@@ -519,7 +544,10 @@ class Window(Adw.ApplicationWindow):
 
         def done(result: Any) -> None:
             ok = not isinstance(result, Exception) and result.ok
-            self.toast(f"Cancelled {label}" if ok else f"Could not cancel {label}")
+            if ok:
+                self.toast(_("Cancelled {label}").format(label=label))
+            else:
+                self.toast(_("Could not cancel {label}").format(label=label))
             self.refresh()
 
         _background(lambda: self.runner.run(["cancel", job.id]), done)
@@ -530,33 +558,37 @@ class Window(Adw.ApplicationWindow):
         page = Adw.PreferencesPage()
 
         doc = Adw.PreferencesGroup(
-            title="Documents",
-            description="Add files or drop them on this page (PDF, images, text, Office "
-            "documents). Hold Ctrl in the file window to pick several.",
+            title=_("Documents"),
+            description=_(
+                "Add files or drop them on this page (PDF, images, text, Office "
+                "documents). Hold Ctrl in the file window to pick several."
+            ),
         )
-        add = Gtk.Button(label="Add files…", valign=Gtk.Align.CENTER)
+        add = Gtk.Button(label=_("Add files…"), valign=Gtk.Align.CENTER)
         add.connect("clicked", self._choose_files)
         doc.set_header_suffix(add)
         self.document_list = _boxed_list(doc)
-        self.no_documents_row = Adw.ActionRow(title="No documents selected")
+        self.no_documents_row = Adw.ActionRow(title=_("No documents selected"))
         self.no_documents_row.add_prefix(Gtk.Image(icon_name="text-x-generic-symbolic"))
         self.document_list.append(self.no_documents_row)
         page.add(doc)
 
-        opts = Adw.PreferencesGroup(title="Options", description="Used for every document")
+        opts = Adw.PreferencesGroup(title=_("Options"), description=_("Used for every document"))
         self.copies_row = Adw.SpinRow.new_with_range(1, 99, 1)
-        self.copies_row.set_title("Copies")
+        self.copies_row.set_title(_("Copies"))
         self.sides_row = Adw.ComboRow(
-            title="Two-sided",
-            model=Gtk.StringList.new(["Off", "Long edge (book)", "Short edge (flip)"]),
+            title=_("Two-sided"),
+            model=Gtk.StringList.new([_("Off"), _("Long edge (book)"), _("Short edge (flip)")]),
         )
         self.color_row = Adw.SwitchRow(
-            title="Colour", subtitle="Off prints in greyscale", active=True
+            title=_("Colour"), subtitle=_("Off prints in greyscale"), active=True
         )
         self.quality_row = Adw.ComboRow(
-            title="Quality", model=Gtk.StringList.new(["Draft", "Normal", "Best"]), selected=1
+            title=_("Quality"),
+            model=Gtk.StringList.new([_("Draft"), _("Normal"), _("Best")]),
+            selected=1,
         )
-        self.pages_row = Adw.EntryRow(title="Pages (e.g. 1-3,5 — empty for all)")
+        self.pages_row = Adw.EntryRow(title=_("Pages (e.g. 1-3,5 — empty for all)"))
         rows = (
             self.copies_row,
             self.sides_row,
@@ -569,7 +601,7 @@ class Window(Adw.ApplicationWindow):
         page.add(opts)
 
         go = Adw.PreferencesGroup()
-        self.print_button = _pill_button("Print", "document-print-symbolic", suggested=True)
+        self.print_button = _pill_button(_("Print"), "document-print-symbolic", suggested=True)
         self.print_button.set_halign(Gtk.Align.CENTER)
         self.print_button.set_sensitive(False)
         self.print_button.connect("clicked", self._print_clicked)
@@ -582,10 +614,10 @@ class Window(Adw.ApplicationWindow):
         drop.connect("leave", lambda *_: page.remove_css_class("drop-hover"))
         page.add_controller(drop)
 
-        self.stack.add_titled_with_icon(page, "print", "Print", "document-print-symbolic")
+        self.stack.add_titled_with_icon(page, "print", _("Print"), "document-print-symbolic")
 
-    def _choose_files(self, *_: Any) -> None:
-        dialog = Gtk.FileDialog(title="Choose documents to print")
+    def _choose_files(self, *_args: Any) -> None:
+        dialog = Gtk.FileDialog(title=_("Choose documents to print"))
 
         def done(dlg: Gtk.FileDialog, result: Gio.AsyncResult) -> None:
             try:
@@ -607,11 +639,10 @@ class Window(Adw.ApplicationWindow):
                 self._add_document(path)
                 added = True
         if rejected:
-            self.toast(
-                "That file cannot be printed"
-                if rejected == 1
-                else f"{rejected} files cannot be printed"
-            )
+            if rejected == 1:
+                self.toast(_("That file cannot be printed"))
+            else:
+                self.toast(_("{count} files cannot be printed").format(count=rejected))
         return added
 
     def _add_document(self, path: str) -> None:
@@ -642,7 +673,7 @@ class Window(Adw.ApplicationWindow):
         self.no_documents_row.set_visible(not self.documents)
         count = sum(row.error is None for row in self.documents)
         self.print_button.set_sensitive(count > 0)
-        label = f"Print {count} documents" if count > 1 else "Print"
+        label = _("Print {count} documents").format(count=count) if count > 1 else _("Print")
         self.print_button.get_child().set_label(label)
 
     def _document_done(self, row: DocumentRow) -> None:
@@ -658,12 +689,12 @@ class Window(Adw.ApplicationWindow):
             self, None, None, None
         )
 
-    def _print_clicked(self, *_: Any) -> None:
+    def _print_clicked(self, *_args: Any) -> None:
         rows = [row for row in self.documents if row.error is None]
         if not rows:
             return
         if self.queue is None:
-            self.toast("No printer configured")
+            self.toast(_("No printer configured"))
             return
         queue = self.queue.name
         reverse = not self.face_down
@@ -680,9 +711,15 @@ class Window(Adw.ApplicationWindow):
             self.toast(str(exc).capitalize())
             return
         form = self._print_form()
-        name = os.path.basename(rows[0].path) if len(rows) == 1 else f"{len(rows)} documents"
+        if len(rows) == 1:
+            name = os.path.basename(rows[0].path)
+        else:
+            name = _("{count} documents").format(count=len(rows))
         waiting = not all(row.pdf.done() for row in rows)
-        self.toast(f"Preparing {name} for printing" if waiting else f"Printing {name}")
+        if waiting:
+            self.toast(_("Preparing {name} for printing").format(name=name))
+        else:
+            self.toast(_("Printing {name}").format(name=name))
         for row in rows:
             self._unlist_document(row)
         self._set_print_form()
@@ -716,7 +753,7 @@ class Window(Adw.ApplicationWindow):
                 failed.append((row, str(exc)))
                 continue
             if not result.ok:
-                failed.append((row, result.err.strip() or "unknown error"))
+                failed.append((row, result.err.strip() or _("unknown error")))
         return failed
 
     def _restore_failed(
@@ -725,11 +762,14 @@ class Window(Adw.ApplicationWindow):
         if not failed:
             return
         row, err = failed[0]
-        name = os.path.basename(row.path) if len(failed) == 1 else f"{len(failed)} documents"
-        self.toast(f"Could not print {name}: {err}")
+        if len(failed) == 1:
+            name = os.path.basename(row.path)
+        else:
+            name = _("{count} documents").format(count=len(failed))
+        self.toast(_("Could not print {name}: {error}").format(name=name, error=err))
         if not self.documents:  # otherwise the options now belong to the newer documents
             self._set_print_form(*form)
-        for row, _ in failed:
+        for row, _err in failed:
             if all(other.path != row.path for other in self.documents):
                 row.update()
                 self._list_document(row)
@@ -754,7 +794,7 @@ class Window(Adw.ApplicationWindow):
 
     def _submit_print(self, path: str, options: dict[str, Any]) -> None:
         if self.queue is None:
-            self.toast("No printer configured")
+            self.toast(_("No printer configured"))
             return
         try:
             argv = status.print_argv(self.queue.name, path, reverse=not self.face_down, **options)
@@ -765,9 +805,10 @@ class Window(Adw.ApplicationWindow):
         def done(result: Any) -> None:
             if isinstance(result, Exception) or not result.ok:
                 err = str(result) if isinstance(result, Exception) else result.err.strip()
-                self.toast(f"Printing failed: {err or 'unknown error'}")
+                self.toast(_("Printing failed: {error}").format(error=err or _("unknown error")))
                 return
-            self.toast(f"Printing {options.get('title') or os.path.basename(path)}")
+            title = options.get("title") or os.path.basename(path)
+            self.toast(_("Printing {name}").format(name=title))
             self.refresh()
 
         _background(lambda: self.runner.run(argv, timeout=120), done)
@@ -778,30 +819,32 @@ class Window(Adw.ApplicationWindow):
         root = Gtk.Box(spacing=0)
 
         side = Adw.PreferencesPage(width_request=340, hexpand=False)
-        group = Adw.PreferencesGroup(title="Scanner")
-        self.scanner_row = Adw.ComboRow(title="Device", model=Gtk.StringList.new(["Searching…"]))
+        group = Adw.PreferencesGroup(title=_("Scanner"))
+        self.scanner_row = Adw.ComboRow(
+            title=_("Device"), model=Gtk.StringList.new([_("Searching…")])
+        )
         self.resolution_row = Adw.ComboRow(
-            title="Resolution",
-            model=Gtk.StringList.new([f"{r} dpi" for r in RESOLUTIONS]),
+            title=_("Resolution"),
+            model=Gtk.StringList.new([_("{dpi} dpi").format(dpi=r) for r in RESOLUTIONS]),
             selected=RESOLUTIONS.index(300),
         )
-        modes = Gtk.StringList.new(["Colour", "Greyscale"])
-        self.mode_row = Adw.ComboRow(title="Mode", model=modes)
+        modes = Gtk.StringList.new([_("Colour"), _("Greyscale")])
+        self.mode_row = Adw.ComboRow(title=_("Mode"), model=modes)
         for row in (self.scanner_row, self.resolution_row, self.mode_row):
             group.add(row)
         side.add(group)
 
         buttons = Adw.PreferencesGroup()
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        self.scan_button = _pill_button("Scan page", "scanner-symbolic", suggested=True)
+        self.scan_button = _pill_button(_("Scan page"), "scanner-symbolic", suggested=True)
         self.scan_button.set_sensitive(False)
         self.scan_button.connect("clicked", self._scan_clicked)
         box.append(self.scan_button)
-        self.save_button = _pill_button("Save…", "document-save-symbolic")
+        self.save_button = _pill_button(_("Save…"), "document-save-symbolic")
         self.save_button.set_sensitive(False)
         self.save_button.connect("clicked", self._save_clicked)
         box.append(self.save_button)
-        self.remove_button = _pill_button("Remove page", "user-trash-symbolic")
+        self.remove_button = _pill_button(_("Remove page"), "user-trash-symbolic")
         self.remove_button.add_css_class("destructive-action")
         self.remove_button.set_sensitive(False)
         self.remove_button.connect("clicked", self._remove_page)
@@ -815,15 +858,17 @@ class Window(Adw.ApplicationWindow):
         self.scan_stack.add_named(
             Adw.StatusPage(
                 icon_name="scanner-symbolic",
-                title="Ready to scan",
-                description="Place the document face down on the glass and press “Scan page”.\n"
-                "Scan several pages to save them as one PDF.",
+                title=_("Ready to scan"),
+                description=_(
+                    "Place the document face down on the glass and press “Scan page”.\n"
+                    "Scan several pages to save them as one PDF."
+                ),
             ),
             "empty",
         )
         busy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16, valign=Gtk.Align.CENTER)
         busy.append(_spinner(48))
-        busy.append(Gtk.Label(label="Scanning…", css_classes=["title-3"]))
+        busy.append(Gtk.Label(label=_("Scanning…"), css_classes=["title-3"]))
         self.scan_stack.add_named(busy, "busy")
 
         pages = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -838,12 +883,12 @@ class Window(Adw.ApplicationWindow):
         self.scan_stack.add_named(pages, "pages")
         root.append(self.scan_stack)
 
-        self.stack.add_titled_with_icon(root, "scan", "Scan", "scanner-symbolic")
+        self.stack.add_titled_with_icon(root, "scan", _("Scan"), "scanner-symbolic")
 
     def _load_scanners(self) -> None:
         def done(result: Any) -> None:
             if isinstance(result, Exception) or not result:
-                self.scanner_row.set_model(Gtk.StringList.new(["No scanner found"]))
+                self.scanner_row.set_model(Gtk.StringList.new([_("No scanner found")]))
                 return
             # sane-airscan first: it is the most reliable backend for network devices
             self.scanners = sorted(result, key=lambda s: (not s.startswith("airscan:"), s))
@@ -857,7 +902,7 @@ class Window(Adw.ApplicationWindow):
 
         _background(work, done)
 
-    def _scan_clicked(self, *_: Any) -> None:
+    def _scan_clicked(self, *_args: Any) -> None:
         index = self.scanner_row.get_selected()
         if not 0 <= index < len(self.scanners):
             return
@@ -873,7 +918,8 @@ class Window(Adw.ApplicationWindow):
             self.scan_button.set_sensitive(True)
             if isinstance(result, Exception) or not result.ok or not os.path.exists(out):
                 err = str(result) if isinstance(result, Exception) else result.err.strip()
-                self.toast(f"Scan failed: {err.splitlines()[-1] if err else 'unknown error'}")
+                reason = err.splitlines()[-1] if err else _("unknown error")
+                self.toast(_("Scan failed: {error}").format(error=reason))
                 self._show_pages()
                 return
             self.pages.append((out, dpi))
@@ -897,7 +943,11 @@ class Window(Adw.ApplicationWindow):
         self.save_button.set_sensitive(has_pages)
         self.remove_button.set_sensitive(has_pages)
         n = len(self.pages)
-        self.page_label.set_label(f"{n} page{'s' if n != 1 else ''} · saved as PDF keeps them all")
+        if n == 1:
+            text = _("{count} page · saved as PDF keeps them all")
+        else:
+            text = _("{count} pages · saved as PDF keeps them all")
+        self.page_label.set_label(text.format(count=n))
         if select_last and has_pages:
             last = self.carousel.get_nth_page(n - 1)
             GLib.idle_add(lambda: self.carousel.scroll_to(last, True) and False)
@@ -905,25 +955,25 @@ class Window(Adw.ApplicationWindow):
     def _current_page(self) -> int:
         return min(round(self.carousel.get_position()), len(self.pages) - 1)
 
-    def _remove_page(self, *_: Any) -> None:
+    def _remove_page(self, *_args: Any) -> None:
         if self.pages:
             path, _dpi = self.pages.pop(self._current_page())
             if os.path.exists(path):
                 os.unlink(path)
             self._show_pages()
 
-    def _save_clicked(self, *_: Any) -> None:
+    def _save_clicked(self, *_args: Any) -> None:
         filters = Gio.ListStore.new(Gtk.FileFilter)
         for name, pattern in (
-            ("PDF document (all pages)", "*.pdf"),
-            ("PNG image", "*.png"),
-            ("JPEG image", "*.jpg"),
+            (_("PDF document (all pages)"), "*.pdf"),
+            (_("PNG image"), "*.png"),
+            (_("JPEG image"), "*.jpg"),
         ):
             flt = Gtk.FileFilter(name=name)
             flt.add_pattern(pattern)
             filters.append(flt)
         dialog = Gtk.FileDialog(
-            title="Save scan",
+            title=_("Save scan"),
             initial_name=f"scan-{GLib.DateTime.new_now_local().format('%Y%m%d-%H%M%S')}.pdf",
             filters=filters,
         )
@@ -946,10 +996,10 @@ class Window(Adw.ApplicationWindow):
 
     def _saved(self, result: Any, target: str) -> None:
         if isinstance(result, Exception):
-            self.toast(f"Could not save: {result}")
+            self.toast(_("Could not save: {error}").format(error=result))
             return
         name = GLib.markup_escape_text(os.path.basename(target))
-        toast = Adw.Toast(title=f"Saved {name}", button_label="Open")
+        toast = Adw.Toast(title=_("Saved {name}").format(name=name), button_label=_("Open"))
         launcher = Gtk.FileLauncher(file=Gio.File.new_for_path(target))
         toast.connect("button-clicked", lambda *_: launcher.launch(self, None, None, None))
         self.toasts.add_toast(toast)
@@ -959,21 +1009,21 @@ class Window(Adw.ApplicationWindow):
     def _build_doctor_page(self) -> None:
         page = Adw.PreferencesPage()
         self.checks_group = Adw.PreferencesGroup(
-            title="Diagnostics",
-            description="Checks the printing system, network discovery and scanner",
+            title=_("Diagnostics"),
+            description=_("Checks the printing system, network discovery and scanner"),
         )
         self.doctor_button = Gtk.Button(
-            icon_name="view-refresh-symbolic", tooltip_text="Run again", css_classes=["flat"]
+            icon_name="view-refresh-symbolic", tooltip_text=_("Run again"), css_classes=["flat"]
         )
         self.doctor_button.connect("clicked", lambda *_: self.run_doctor())
         self.checks_group.set_header_suffix(self.doctor_button)
         self.checks_list = _boxed_list(self.checks_group)
         page.add(self.checks_group)
-        self.stack.add_titled_with_icon(page, "doctor", "Diagnostics", "emblem-system-symbolic")
+        self.stack.add_titled_with_icon(page, "doctor", _("Diagnostics"), "emblem-system-symbolic")
         self.stack.connect("notify::visible-child-name", self._on_page_changed)
         self._doctor_ran = False
 
-    def _on_page_changed(self, *_: Any) -> None:
+    def _on_page_changed(self, *_args: Any) -> None:
         if self.stack.get_visible_child_name() == "doctor" and not self._doctor_ran:
             self.run_doctor()
 
@@ -981,7 +1031,9 @@ class Window(Adw.ApplicationWindow):
         self._doctor_ran = True
         self.doctor_button.set_sensitive(False)
         self.checks_list.remove_all()
-        row = Adw.ActionRow(title="Running checks…", subtitle="Looking for printers on the network")
+        row = Adw.ActionRow(
+            title=_("Running checks…"), subtitle=_("Looking for printers on the network")
+        )
         row.add_prefix(_spinner())
         self.checks_list.append(row)
 
@@ -989,7 +1041,7 @@ class Window(Adw.ApplicationWindow):
             self.doctor_button.set_sensitive(True)
             self.checks_list.remove_all()
             if isinstance(result, Exception):
-                failed = Adw.ActionRow(title="Diagnostics failed", subtitle=str(result))
+                failed = Adw.ActionRow(title=_("Diagnostics failed"), subtitle=str(result))
                 self.checks_list.append(failed)
                 return
             for check in result:
@@ -999,7 +1051,7 @@ class Window(Adw.ApplicationWindow):
 
     def _check_row(self, check: Check) -> Gtk.Widget:
         icon, css = _CHECK_ICONS.get(check.status, _CHECK_ICONS["skip"])
-        title = _CHECK_TITLES.get(check.id, check.id.replace("-", " ").capitalize())
+        title = _check_title(check.id)
         subtitle = GLib.markup_escape_text(check.message)
         if not (check.fix and check.status in ("fail", "warn")):
             row = Adw.ActionRow(title=title, subtitle=subtitle)
@@ -1007,11 +1059,11 @@ class Window(Adw.ApplicationWindow):
             return row
         row = Adw.ExpanderRow(title=title, subtitle=subtitle, expanded=True)
         row.add_prefix(Gtk.Image(icon_name=icon, css_classes=[css]))
-        fix = Adw.ActionRow(title="Suggested fix", subtitle=GLib.markup_escape_text(check.fix))
+        fix = Adw.ActionRow(title=_("Suggested fix"), subtitle=GLib.markup_escape_text(check.fix))
         fix.add_css_class("property")
         copy = Gtk.Button(
             icon_name="edit-copy-symbolic",
-            tooltip_text="Copy command",
+            tooltip_text=_("Copy command"),
             valign=Gtk.Align.CENTER,
             css_classes=["flat"],
         )
@@ -1022,7 +1074,7 @@ class Window(Adw.ApplicationWindow):
 
     def _copy_fix(self, _button: Gtk.Button, command: str) -> None:
         self.get_clipboard().set(command)
-        self.toast("Command copied")
+        self.toast(_("Command copied"))
 
 
 def save_scan(pages: list[tuple[str, int]], target: str) -> None:
@@ -1074,7 +1126,7 @@ class App(Adw.Application):
                 lambda *_: Adw.AboutDialog(
                     application_name="LibrePrint",
                     version=__version__,
-                    comments="Set up and use any printer on Linux.",
+                    comments=_("Set up and use any printer on Linux."),
                     license_type=Gtk.License.GPL_2_0,
                 ).present(window),
             )

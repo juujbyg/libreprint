@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import threading
 
+from libreprint.i18n import _
 from libreprint.runner import Runner
 
 # CUPS prints these itself, as well as anything that reads as plain text
@@ -82,11 +83,11 @@ def to_pdf(runner: Runner, path: str, outdir: str) -> str:
     """Path of a PDF made from ``path`` inside ``outdir``."""
     offices = _offices(runner)
     if not offices:
-        raise ConvertError("Install LibreOffice to print this type of file")
+        raise ConvertError(_("Install LibreOffice to print this type of file"))
     with _lock:
         # Ubuntu's soffice can be libreoffice-core alone, which opens nothing: try the next one
         for office, base in offices:
             pdf = _convert(runner, office, base, path, outdir)
             if pdf:
                 return pdf
-    raise ConvertError("LibreOffice could not open this file")
+    raise ConvertError(_("LibreOffice could not open this file"))

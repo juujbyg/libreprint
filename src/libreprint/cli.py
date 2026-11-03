@@ -13,6 +13,7 @@ from libreprint import __version__, doctor, hplipdb, plugin
 from libreprint import setup as setup_mod
 from libreprint.decide import decide
 from libreprint.discovery import discover
+from libreprint.i18n import _, set_language
 from libreprint.models import Device
 from libreprint.queues import find_existing, parse_lpstat_v
 from libreprint.runner import Runner
@@ -37,34 +38,34 @@ def _symbols() -> dict[str, str]:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="libreprint", description="Set up any printer or scanner with one command."
+        prog="libreprint", description=_("Set up any printer or scanner with one command.")
     )
     parser.add_argument("--version", action="version", version=f"libreprint {__version__}")
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
 
-    p = sub.add_parser("setup", help="detect printers and create their print queues")
-    p.add_argument("--uri", help="configure this device URI instead of discovering")
-    p.add_argument("--yes", action="store_true", help="do not ask questions")
-    p.add_argument("--no-test-page", action="store_true", help="do not print a test page")
-    p.add_argument("--force", action="store_true", help="reconfigure an existing queue")
+    p = sub.add_parser("setup", help=_("detect printers and create their print queues"))
+    p.add_argument("--uri", help=_("configure this device URI instead of discovering"))
+    p.add_argument("--yes", action="store_true", help=_("do not ask questions"))
+    p.add_argument("--no-test-page", action="store_true", help=_("do not print a test page"))
+    p.add_argument("--force", action="store_true", help=_("reconfigure an existing queue"))
 
-    p = sub.add_parser("list", help="list detected printers")
-    p.add_argument("--json", action="store_true", help="machine-readable output")
+    p = sub.add_parser("list", help=_("list detected printers"))
+    p.add_argument("--json", action="store_true", help=_("machine-readable output"))
 
-    p = sub.add_parser("doctor", help="diagnose common problems")
-    p.add_argument("--json", action="store_true", help="machine-readable output")
-    p.add_argument("--fix", action="store_true", help="apply the available fixes (needs root)")
+    p = sub.add_parser("doctor", help=_("diagnose common problems"))
+    p.add_argument("--json", action="store_true", help=_("machine-readable output"))
+    p.add_argument("--fix", action="store_true", help=_("apply the available fixes (needs root)"))
 
-    p = sub.add_parser("plugin", help="install the HP plugin (accepting HP's license)")
-    p.add_argument("--yes", action="store_true", help="do not ask questions")
+    p = sub.add_parser("plugin", help=_("install the HP plugin (accepting HP's license)"))
+    p.add_argument("--yes", action="store_true", help=_("do not ask questions"))
 
-    p = sub.add_parser("auto", help="non-interactive setup (used by udev and packaging)")
+    p = sub.add_parser("auto", help=_("non-interactive setup (used by udev and packaging)"))
     group = p.add_mutually_exclusive_group(required=True)
-    group.add_argument("--usb", metavar="DEVNAME", help="a USB device was just plugged in")
-    group.add_argument("--all", action="store_true", help="USB and network devices")
+    group.add_argument("--usb", metavar="DEVNAME", help=_("a USB device was just plugged in"))
+    group.add_argument("--all", action="store_true", help=_("USB and network devices"))
 
-    sub.add_parser("watch", help="watch the network for new printers (systemd service)")
-    sub.add_parser("gui", help="open the graphical app: ink, printing, scanning, diagnostics")
+    sub.add_parser("watch", help=_("watch the network for new printers (systemd service)"))
+    sub.add_parser("gui", help=_("open the graphical app: ink, printing, scanning, diagnostics"))
     return parser
 
 
@@ -84,9 +85,9 @@ def _elevate(argv: list[str]) -> int:
         try:
             os.execvp("sudo", ["sudo", sys.executable, "-m", "libreprint", *argv])
         except OSError as exc:
-            print(f"libreprint: could not run sudo: {exc}", file=sys.stderr)
+            print(_("libreprint: could not run sudo: {error}").format(error=exc), file=sys.stderr)
             return EXIT_ROOT
-    print("libreprint: this command needs root (try: sudo libreprint ...)", file=sys.stderr)
+    print(_("libreprint: this command needs root (try: sudo libreprint ...)"), file=sys.stderr)
     return EXIT_ROOT
 
 
@@ -95,21 +96,38 @@ def _print_outcome(outcome: Outcome, sym: dict[str, str]) -> None:
     status = outcome.status
     if status == "created":
         method = outcome.plan.method.value if outcome.plan else "?"
-        print(f"{sym['ok']} {name} {sym['arrow']} queue {outcome.queue} ({method})")
-    elif status == "exists":
-        print(f"{sym['dot']} {name}: already configured as {outcome.queue}")
-    elif status == "needs-plugin":
-        print(f"! {name} needs the HP plugin: run sudo libreprint plugin")
-    elif status == "skipped":
         print(
-            f"{sym['dot']} {name}: skipped" + (f" ({outcome.message})" if outcome.message else "")
+            _("{ok} {name} {arrow} queue {queue} ({method})").format(
+                ok=sym["ok"], name=name, arrow=sym["arrow"], queue=outcome.queue, method=method
+            )
         )
+    elif status == "exists":
+        print(
+            _("{dot} {name}: already configured as {queue}").format(
+                dot=sym["dot"], name=name, queue=outcome.queue
+            )
+        )
+    elif status == "needs-plugin":
+        print(_("! {name} needs the HP plugin: run sudo libreprint plugin").format(name=name))
+    elif status == "skipped":
+        if outcome.message:
+            print(
+                _("{dot} {name}: skipped ({reason})").format(
+                    dot=sym["dot"], name=name, reason=outcome.message
+                )
+            )
+        else:
+            print(_("{dot} {name}: skipped").format(dot=sym["dot"], name=name))
     else:
-        print(f"{sym['fail']} {name}: {outcome.message or status}")
+        print(
+            _("{fail} {name}: {reason}").format(
+                fail=sym["fail"], name=name, reason=outcome.message or status
+            )
+        )
     if outcome.scanner:
-        print(f"  scanner: {outcome.scanner}")
+        print(_("  scanner: {scanner}").format(scanner=outcome.scanner))
     if outcome.message and status in ("created", "exists"):
-        print(f"  note: {outcome.message}")
+        print(_("  note: {note}").format(note=outcome.message))
 
 
 def _report(outcomes: list[Outcome]) -> int:
@@ -131,7 +149,7 @@ def _cmd_setup(args: argparse.Namespace, runner: Runner) -> int:
     ui = ConsoleUI(assume_yes=args.yes)
     outcomes = setup_mod.run_setup(runner, opts, load_config(runner), ui)
     if not outcomes:
-        print("libreprint: no printer found", file=sys.stderr)
+        print(_("libreprint: no printer found"), file=sys.stderr)
         return EXIT_NO_DEVICE
     return _report(outcomes)
 
@@ -149,13 +167,13 @@ def _cmd_list(args: argparse.Namespace, runner: Runner) -> int:
     if args.json:
         print(json.dumps([{**asdict(d), "method": m, "queue": q} for d, m, q in rows], indent=2))
         return EXIT_OK
-    header = ("MODEL", "CONNECTION", "METHOD", "QUEUE")
+    header = (_("MODEL"), _("CONNECTION"), _("METHOD"), _("QUEUE"))
     table = [header, *[(d.display_name, d.connection, m, q) for d, m, q in rows]]
     widths = [max(len(row[i]) for row in table) for i in range(len(header))]
     for row in table:
         print("  ".join(cell.ljust(width) for cell, width in zip(row, widths)).rstrip())
     if not rows:
-        print("No printer found.", file=sys.stderr)
+        print(_("No printer found."), file=sys.stderr)
     return EXIT_OK
 
 
@@ -171,23 +189,25 @@ def _cmd_doctor(args: argparse.Namespace, runner: Runner) -> int:
         for check in checks:
             print(f"{labels.get(check.status, '[????]')} {check.id}: {check.message}")
             if check.fix and check.status in ("fail", "warn"):
-                print(f"  fix: {check.fix}")
+                print(_("  fix: {fix}").format(fix=check.fix))
     return EXIT_ERROR if any(c.status == "fail" for c in checks) else EXIT_OK
 
 
 def _cmd_plugin(args: argparse.Namespace, runner: Runner) -> int:
     print(
-        "hp-plugin will download HP's proprietary plugin from HP; it is covered by HP's own "
-        "license.",
+        _(
+            "hp-plugin will download HP's proprietary plugin from HP; it is covered by HP's own "
+            "license."
+        ),
         file=sys.stderr,
     )
     if not plugin.install_plugin(runner, interactive=not args.yes):
         print(
-            "libreprint: the HP plugin is not installed (see the messages above)",
+            _("libreprint: the HP plugin is not installed (see the messages above)"),
             file=sys.stderr,
         )
         return EXIT_ERROR
-    print("HP plugin installed.")
+    print(_("HP plugin installed."))
     pending = setup_mod.clear_pending_plugin(runner)
     if not pending:
         return EXIT_OK
@@ -215,14 +235,21 @@ def _cmd_gui(args: argparse.Namespace, runner: Runner) -> int:
     try:
         from libreprint import gui
     except (ImportError, ValueError) as exc:
-        print(f"libreprint: the graphical app needs GTK 4 and libadwaita ({exc})", file=sys.stderr)
+        print(
+            _("libreprint: the graphical app needs GTK 4 and libadwaita ({error})").format(
+                error=exc
+            ),
+            file=sys.stderr,
+        )
         print("  sudo apt install python3-gi gir1.2-adw-1", file=sys.stderr)
         return EXIT_ERROR
     adw = (gui.Adw.get_major_version(), gui.Adw.get_minor_version())
     if adw < gui.MIN_ADW:
         print(
-            f"libreprint: the graphical app needs libadwaita {'.'.join(map(str, gui.MIN_ADW))} "
-            f"or newer (found {adw[0]}.{adw[1]}); use the command line instead",
+            _(
+                "libreprint: the graphical app needs libadwaita {needed} or newer "
+                "(found {found}); use the command line instead"
+            ).format(needed=".".join(map(str, gui.MIN_ADW)), found=f"{adw[0]}.{adw[1]}"),
             file=sys.stderr,
         )
         return EXIT_ERROR
@@ -246,6 +273,7 @@ def main(
     *,
     euid: int | None = None,
 ) -> int:
+    set_language()
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     parser = _build_parser()
     try:

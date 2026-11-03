@@ -6,6 +6,8 @@ from __future__ import annotations
 import sys
 from typing import Protocol
 
+from libreprint.i18n import _
+
 
 class UI(Protocol):
     interactive: bool
@@ -40,7 +42,7 @@ class ConsoleUI:
         self._say(msg)
 
     def warn(self, msg: str) -> None:
-        self._say(f"warning: {msg}")
+        self._say(_("warning: {msg}").format(msg=msg))
 
     def confirm(self, question: str, default: bool = True) -> bool:
         if self.assume_yes:
@@ -64,23 +66,23 @@ class ConsoleUI:
         for number, item in enumerate(items, 1):
             self._say(f"  {number}) {item}")
         while True:
-            answer = self._ask("Select (e.g. 1,3; 'a' or Enter for all): ")
+            answer = self._ask(_("Select (e.g. 1,3; 'a' or Enter for all): "))
             if answer is None or answer == "" or answer.lower() == "a":
                 return everything
             picks = [tok for tok in answer.replace(",", " ").split() if tok]
             if all(tok.isdigit() and 1 <= int(tok) <= len(items) for tok in picks):
                 return sorted({int(tok) - 1 for tok in picks})
-            self._say("Invalid selection.")
+            self._say(_("Invalid selection."))
 
 
 class AutoUI:
     interactive = False
 
     def info(self, msg: str) -> None:
-        print(f"libreprint: {msg}", flush=True)
+        print(_("libreprint: {msg}").format(msg=msg), flush=True)
 
     def warn(self, msg: str) -> None:
-        print(f"libreprint: warning: {msg}", flush=True)
+        print(_("libreprint: warning: {msg}").format(msg=msg), flush=True)
 
     def confirm(self, question: str, default: bool = True) -> bool:
         return False

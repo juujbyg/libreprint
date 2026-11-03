@@ -13,6 +13,7 @@ from libreprint import state as state_mod
 from libreprint.decide import best_ipp_uri, decide
 from libreprint.discovery import discover, parse_avahi, probe_uri
 from libreprint.hplipdb import normalize_model
+from libreprint.i18n import _
 from libreprint.models import Device, Method, Plan, ScanMethod
 from libreprint.queues import (
     find_existing,
@@ -29,11 +30,6 @@ TEST_PAGE = "/usr/share/cups/data/testprint"
 
 AUTO_RETRY_DELAYS = [2, 4, 8, 16, 30]
 WATCH_SETTLE_SECONDS = 5
-
-_PLUGIN_NOTICE = (
-    "This printer needs HP's proprietary plugin. It is not part of libreprint or of your "
-    "distribution: it is downloaded from HP and is covered by HP's own license."
-)
 
 
 @dataclass
@@ -68,7 +64,12 @@ def _locked() -> Iterator[None]:
 
 def _failed(device: Device, step: str, res: Result, plan: Plan | None = None) -> Outcome:
     detail = (res.err or res.out).strip()
-    message = f"{step} failed (exit {res.code})" + (f": {detail}" if detail else "")
+    if detail:
+        message = _("{step} failed (exit {code}): {detail}").format(
+            step=step, code=res.code, detail=detail
+        )
+    else:
+        message = _("{step} failed (exit {code})").format(step=step, code=res.code)
     return Outcome(device, "failed", plan=plan, message=message)
 
 
@@ -80,17 +81,20 @@ def _ensure_packages(
     if not missing:
         return None
     if ui.interactive:
-        allowed = ui.confirm(f"Install {', '.join(missing)}?")
+        allowed = ui.confirm(_("Install {packages}?").format(packages=", ".join(missing)))
     else:
         allowed = config.install_packages or assume_yes
     if not allowed:
-        return f"required packages not installed: {', '.join(missing)}"
+        return _("required packages not installed: {packages}").format(packages=", ".join(missing))
     res = deps.install(runner, missing)
     if not res.ok:
         detail = (res.err or res.out).strip()
-        return f"apt-get install {' '.join(missing)} failed (exit {res.code})" + (
-            f": {detail}" if detail else ""
-        )
+        command = "apt-get install " + " ".join(missing)
+        if detail:
+            return _("{step} failed (exit {code}): {detail}").format(
+                step=command, code=res.code, detail=detail
+            )
+        return _("{step} failed (exit {code})").format(step=command, code=res.code)
     return None
 
 
@@ -130,8 +134,13 @@ def _hp_usb_uri(runner: Runner, model: str) -> str | None:
 
 def _obtain_plugin(runner: Runner, config: Config, ui: UI) -> bool:
     if ui.interactive:
-        ui.info(_PLUGIN_NOTICE)
-        if not ui.confirm("Download and install the HP plugin now?"):
+        ui.info(
+            _(
+                "This printer needs HP's proprietary plugin. It is not part of libreprint or of "
+                "your distribution: it is downloaded from HP and is covered by HP's own license."
+            )
+        )
+        if not ui.confirm(_("Download and install the HP plugin now?")):
             return False
         return plugin.install_plugin(runner, interactive=True)
     if config.accept_hp_plugin_license:
@@ -152,7 +161,7 @@ def _configure_scanner(
     if found:
         outcome.scanner = found
         return
-    note = "scanner not visible yet (check with: scanimage -L)"
+    note = _("scanner not visible yet (check with: scanimage -L)")
     outcome.message = f"{outcome.message}; {note}" if outcome.message else note
     ui.warn(note)
 
@@ -209,7 +218,7 @@ def _setup_device(
         if device.model not in state.pending_plugin:
             state.pending_plugin.append(device.model)
         save_state(runner, state)
-        return Outcome(device, "needs-plugin", plan=plan, message="run: sudo libreprint plugin")
+        return Outcome(device, "needs-plugin", plan=plan, message=_("run: sudo libreprint plugin"))
 
     # 7. Create the queue.
     assert plan.queue is not None
@@ -221,7 +230,7 @@ def _setup_device(
                 plan.uri = _hp_usb_uri(runner, device.model)
         if plan.uri is None:
             return Outcome(
-                device, "failed", plan=plan, message="could not determine the HPLIP device URI"
+                device, "failed", plan=plan, message=_("could not determine the HPLIP device URI")
             )
         models = runner.run(["lpinfo", "-m"], timeout=120)
         plan.ppd = find_hpcups_ppd(models.out, device.model)
@@ -230,7 +239,7 @@ def _setup_device(
                 device,
                 "failed",
                 plan=plan,
-                message="no matching hpcups PPD found for " + device.model,
+                message=_("no matching hpcups PPD found for {model}").format(model=device.model),
             )
     assert plan.uri is not None and plan.ppd is not None
     res = runner.run(lpadmin_argv(plan.queue, plan.uri, plan.ppd), timeout=120)
@@ -239,7 +248,11 @@ def _setup_device(
     if "no system default destination" in runner.run(["lpstat", "-d"]).out:
         res = runner.run(["lpadmin", "-d", plan.queue])
         if not res.ok:
-            ui.warn(f"could not set {plan.queue} as default printer: {res.err.strip()}")
+            ui.warn(
+                _("could not set {queue} as default printer: {error}").format(
+                    queue=plan.queue, error=res.err.strip()
+                )
+            )
     state.queues[plan.queue] = device.model
     if device.model in state.pending_plugin:
         state.pending_plugin.remove(device.model)
@@ -253,7 +266,7 @@ def _setup_device(
     if opts.test_page and ui.interactive:
         res = runner.run(["lp", "-d", plan.queue, "-t", TEST_PAGE_JOB, TEST_PAGE])
         if not res.ok:
-            ui.warn(f"test page failed: {res.err.strip()}")
+            ui.warn(_("test page failed: {error}").format(error=res.err.strip()))
     return outcome
 
 
@@ -263,7 +276,7 @@ def setup_device(
     try:
         return _setup_device(runner, device, opts, config, state, ui)
     except Exception as exc:  # noqa: BLE001 - a bad device must not abort the whole run
-        return Outcome(device, "failed", message=f"unexpected error: {exc}")
+        return Outcome(device, "failed", message=_("unexpected error: {error}").format(error=exc))
 
 
 def _setup_all(
@@ -295,7 +308,7 @@ def run_setup(
         devices = [d for d in devices if d.model in models]
     if ui.interactive and len(devices) > 1:
         picks = ui.choose(
-            "Several printers found:", [f"{d.display_name} ({d.connection})" for d in devices]
+            _("Several printers found:"), [f"{d.display_name} ({d.connection})" for d in devices]
         )
         devices = [devices[i] for i in picks]
     if not devices:
@@ -307,7 +320,7 @@ def _summary(outcome: Outcome) -> str:
     name = outcome.device.display_name
     parts = [f"{name}: {outcome.status}"]
     if outcome.queue:
-        parts.append(f"queue {outcome.queue}")
+        parts.append(_("queue {queue}").format(queue=outcome.queue))
     if outcome.message:
         parts.append(outcome.message)
     return " - ".join(parts)

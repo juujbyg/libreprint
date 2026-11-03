@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from libreprint.discovery import ipp_attributes
+from libreprint.i18n import _
 from libreprint.queues import Queue, parse_lpstat_v
 from libreprint.runner import Result, Runner
 
@@ -219,7 +220,7 @@ def scan_argv(
 
 def scanner_label(device: str) -> str:
     """Readable name for a SANE device string, e.g. "HP ENVY 6000 series (eSCL)"."""
-    backend, _, rest = device.partition(":")
+    backend, _sep, rest = device.partition(":")
     if backend == "airscan":
         name = rest.partition(":")[2] or rest
         return f"{name.split(' [')[0]} (eSCL)"
@@ -242,14 +243,16 @@ def run_scan(runner: Runner, argv: list[str], attempts: int = 3) -> Result:
 
 
 def job_label(job: Job) -> str:
-    return job.name or f"job {job.id.rpartition('-')[2]}"
+    return job.name or _("job {number}").format(number=job.id.rpartition("-")[2])
 
 
 def job_title(job: Job, active: bool) -> str:
     if not job.name:
         number = job.id.rpartition("-")[2]
-        return f"Job {number} · {'Printing now' if active else 'Waiting'}"
+        if active:
+            return _("Job {number} · Printing now").format(number=number)
+        return _("Job {number} · Waiting").format(number=number)
     if active:
-        return f"Printing {job.name}"
-    name = "Test page" if job.name == TEST_PAGE_JOB else job.name
-    return f"{name} · Waiting"
+        return _("Printing {name}").format(name=job.name)
+    name = _("Test page") if job.name == TEST_PAGE_JOB else job.name
+    return _("{name} · Waiting").format(name=name)
